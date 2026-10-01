@@ -354,7 +354,7 @@
     {id:'gold', name:'Gold Dust', emoji:'✨'}
   ];
 
-  var BASE_SLOTS = 3;
+  var MAX_SLOTS = 6;
   var MAX_HEARTS = 3;
   var HIGH_SCORE_KEY = 'cakeChaosHighScore';
 
@@ -372,7 +372,7 @@
       coins: 0,
       hearts: MAX_HEARTS,
       slots: [],
-      upgrades: { ovens:0, patience:0, speed:0 },
+      upgrades: { patience:0, speed:0 },
       ordersSpawned: 0,
       ordersResolved: 0,
       dayLost: 0,
@@ -382,7 +382,7 @@
     };
   }
 
-  function slotCount(){ return BASE_SLOTS + state.upgrades.ovens; }
+  function slotCount(){ return Math.min(state.day, MAX_SLOTS); }
   function patienceMax(){
     var base = Math.max(9000, 14000 - (state.day-1)*400);
     return base * (1 + state.upgrades.patience*0.22);
@@ -746,11 +746,6 @@
 
   function upgradeDefs(){
     return [
-      {
-        key:'ovens', icon:'🧁', name:'Extra Oven Rack', max:2,
-        desc:'One more order slot at once.',
-        cost:[35,65]
-      },
       {
         key:'patience', icon:'⏳', name:'Patient Regulars', max:3,
         desc:'+22% customer patience.',
