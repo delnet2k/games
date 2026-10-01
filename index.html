@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Games</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Nunito:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#FFF6EC;
+    --surface:#FFFFFF;
+    --surface-2:#FFEBD6;
+    --text:#4A2E1F;
+    --text-muted:#8A6652;
+    --border:#EBD9C2;
+    --shadow: 0 10px 24px -14px rgba(74,46,31,0.35);
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#221510;
+      --surface:#32221A;
+      --surface-2:#3C291E;
+      --text:#F5E6D8;
+      --text-muted:#C9A98C;
+      --border:#4A382C;
+      --shadow: 0 10px 26px -12px rgba(0,0,0,0.55);
+      color-scheme: dark;
+    }
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Nunito',system-ui,sans-serif;
+    padding:40px 16px 60px;
+  }
+  h1{
+    font-family:'Fredoka',system-ui,sans-serif;
+    font-weight:700;
+    font-size:clamp(28px,5vw,40px);
+    text-align:center;
+    margin:0 0 6px;
+  }
+  p.tagline{
+    text-align:center;
+    color:var(--text-muted);
+    margin:0 0 36px;
+    font-weight:600;
+  }
+  .shelf{
+    max-width:760px;
+    margin:0 auto;
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(220px,1fr));
+    gap:18px;
+  }
+  .card{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:20px;
+    padding:20px;
+    text-decoration:none;
+    color:inherit;
+    box-shadow:var(--shadow);
+    transition:transform .12s ease;
+  }
+  .card:hover, .card:focus-visible{ transform:translateY(-3px); }
+  .card:focus-visible{ outline:2px solid var(--text); outline-offset:3px; }
+  .card .thumb{
+    width:100%;
+    aspect-ratio:16/10;
+    border-radius:14px;
+    background:var(--surface-2);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    overflow:hidden;
+  }
+  .card .thumb svg{ width:72%; height:72%; }
+  .card h2{
+    font-family:'Fredoka',system-ui,sans-serif;
+    font-size:19px;
+    margin:0;
+  }
+  .card p{
+    margin:0;
+    font-size:14px;
+    color:var(--text-muted);
+    line-height:1.4;
+  }
+  .card .play{
+    margin-top:4px;
+    font-weight:800;
+    font-size:13px;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    color:var(--text);
+  }
+  .card .play::after{ content:" →"; }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ transition-duration:0.001ms !important; }
+  }
+</style>
+</head>
+<body>
+  <h1>Games</h1>
+  <p class="tagline">A little shelf of things to play.</p>
+
+  <div class="shelf">
+    <a class="card" href="/cake-chaos/">
+      <div class="thumb">
+        <svg viewBox="0 0 64 64" aria-hidden="true">
+          <rect x="10" y="34" width="44" height="18" rx="4" fill="#E8879C"/>
+          <rect x="10" y="34" width="44" height="7" rx="3" fill="rgba(255,255,255,0.35)"/>
+          <rect x="15" y="24" width="34" height="12" rx="4" fill="#E8879C"/>
+          <ellipse cx="32" cy="24" rx="17" ry="4.2" fill="#fff" opacity="0.9"/>
+          <rect x="12" y="18" width="2" height="2" fill="#D98F1F"/>
+          <rect x="20" y="16" width="2" height="2" fill="#8E5BA6"/>
+          <rect x="30" y="14" width="2" height="2" fill="#E8879C"/>
+          <rect x="40" y="16" width="2" height="2" fill="#D98F1F"/>
+          <rect x="48" y="18" width="2" height="2" fill="#8E5BA6"/>
+        </svg>
+      </div>
+      <h2>Cake Chaos</h2>
+      <p>Pearl &amp; Phoebe run the counter — bake, decorate and serve before the customers' patience runs out.</p>
+      <span class="play">Play</span>
+    </a>
+  </div>
+</body>
+</html>
