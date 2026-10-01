@@ -321,6 +321,7 @@
     </div>
     <div class="stats">
       <div class="stat"><span class="dim">Day</span> <span id="dayNum">1</span></div>
+      <div class="stat"><span class="dim">Wave</span> <span id="waveNum">1</span>/<span id="waveMax">6</span></div>
       <div class="stat">🪙 <span id="coinCount">0</span></div>
       <div class="hearts" id="heartsRow" aria-label="Reputation"></div>
     </div>
@@ -366,6 +367,8 @@
   function rand(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
   function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
 
+  var ORDERS_PER_DAY = MAX_SLOTS*(MAX_SLOTS+1)/2;
+
   function newState(){
     return {
       day: 1,
@@ -373,16 +376,16 @@
       hearts: MAX_HEARTS,
       slots: [],
       upgrades: { patience:0, speed:0 },
-      ordersSpawned: 0,
+      wave: 1,
+      waveResolved: 0,
       ordersResolved: 0,
       dayLost: 0,
-      dayTarget: 6,
       spawnTimer: 800,
       phase: 'intro' // intro | playing | daySummary | gameover
     };
   }
 
-  function slotCount(){ return Math.min(state.day, MAX_SLOTS); }
+  function slotCount(){ return state.wave; }
   function patienceMax(){
     var base = Math.max(9000, 14000 - (state.day-1)*400);
     return base * (1 + state.upgrades.patience*0.22);
@@ -394,7 +397,7 @@
     return Math.max(1500, 3300 - (state.day-1)*150);
   }
 
-  function initDaySlots(){
+  function initWaveSlots(){
     var n = slotCount();
     state.slots = [];
     for (var i=0;i<n;i++) state.slots.push(null);
@@ -403,16 +406,31 @@
 
   function startDay(){
     state.phase = 'playing';
-    state.ordersSpawned = 0;
+    state.wave = 1;
+    state.waveResolved = 0;
     state.ordersResolved = 0;
     state.dayLost = 0;
-    state.dayTarget = Math.min(6 + (state.day-1), 11);
     state.spawnTimer = 400;
-    initDaySlots();
+    initWaveSlots();
     closeModal();
     renderTop();
     renderCounter(true);
     if (!tickHandle) tickHandle = setInterval(tick, 100);
+  }
+
+  function checkWaveComplete(){
+    if (state.phase !== 'playing') return;
+    if (state.waveResolved < state.wave) return;
+    if (state.wave >= MAX_SLOTS){
+      endDay();
+      return;
+    }
+    state.wave++;
+    state.waveResolved = 0;
+    state.spawnTimer = 300;
+    initWaveSlots();
+    renderCounter(true);
+    renderTop();
   }
 
   function makeOrder(){
@@ -433,23 +451,18 @@
   function tick(){
     if (state.phase !== 'playing') return;
 
-    // spawn logic
-    if (state.ordersSpawned < state.dayTarget){
-      state.spawnTimer -= 100;
-      if (state.spawnTimer <= 0){
-        var emptyIdx = state.slots.indexOf(null);
-        if (emptyIdx !== -1){
-          state.slots[emptyIdx] = makeOrder();
-          state.ordersSpawned++;
-          state.spawnTimer = spawnIntervalBase() + (Math.random()*600 - 300);
-          renderSlot(emptyIdx);
-        } else {
-          state.spawnTimer = 400;
-        }
+    // spawn logic: fill any empty slot in the current wave
+    state.spawnTimer -= 100;
+    if (state.spawnTimer <= 0){
+      var emptyIdx = state.slots.indexOf(null);
+      if (emptyIdx !== -1){
+        state.slots[emptyIdx] = makeOrder();
+        state.spawnTimer = spawnIntervalBase() + (Math.random()*600 - 300);
+        renderSlot(emptyIdx);
+      } else {
+        state.spawnTimer = 400;
       }
     }
-
-    var dayOver = (state.ordersSpawned >= state.dayTarget);
 
     for (var i=0;i<state.slots.length;i++){
       var o = state.slots[i];
@@ -474,10 +487,6 @@
         }
         updatePatienceBar(i, o);
       }
-    }
-
-    if (dayOver && state.slots.every(function(s){return s===null;})){
-      endDay();
     }
 
     renderTop();
@@ -519,10 +528,12 @@
     state.coins += reward;
     flashToast(i, '+'+reward+' 🪙', 'good');
     state.ordersResolved++;
+    state.waveResolved++;
     state.slots[i] = null;
     lastStage[i] = undefined;
     renderSlot(i);
     renderTop();
+    checkWaveComplete();
   }
 
   function loseOrder(i){
@@ -532,6 +543,7 @@
     state.hearts = Math.max(0, state.hearts - 1);
     state.ordersResolved++;
     state.dayLost++;
+    state.waveResolved++;
     flashToast(i, '💔', 'bad');
     renderTop();
     var card = slotEls[i];
@@ -544,6 +556,7 @@
         state.slots[i] = null;
         lastStage[i] = undefined;
         renderSlot(i);
+        checkWaveComplete();
       }
     }, 650);
 
@@ -572,6 +585,7 @@
 
   function renderTop(){
     document.getElementById('dayNum').textContent = state.day;
+    document.getElementById('waveNum').textContent = state.wave;
     document.getElementById('coinCount').textContent = state.coins;
     var heartsRow = document.getElementById('heartsRow');
     heartsRow.innerHTML = '';
@@ -784,7 +798,7 @@
       '<p>Pearl and Phoebe wipe the flour off their hands. Time to restock before tomorrow&rsquo;s rush.</p>' +
       '<div class="row-stats">' +
         '<div class="pill">🪙 '+state.coins+' total</div>' +
-        '<div class="pill">Served '+(state.ordersResolved - state.dayLost)+' / '+state.dayTarget+'</div>' +
+        '<div class="pill">Served '+(state.ordersResolved - state.dayLost)+' / '+ORDERS_PER_DAY+'</div>' +
         (state.dayLost > 0 ? '<div class="pill">💔 '+state.dayLost+' lost today</div>' : '') +
       '</div>' +
       '<div id="upgradeList"></div>' +
@@ -858,7 +872,8 @@
   function showIntro(){
     var hs = loadHighScore();
     var html = '<h2>Welcome to Cake Chaos!</h2>' +
-      '<p>Pearl and Phoebe are opening the counter. Customers will queue up with an order ticket &mdash; a flavour and a topping. Click <strong>Bake</strong>, wait for the oven, pick the matching topping, then <strong>Serve</strong> before their patience bar runs out.</p>' +
+      '<p>Pearl and Phoebe are opening the counter. Customers queue up with an order ticket &mdash; a flavour and a topping. Click <strong>Bake</strong>, wait for the oven, pick the matching topping, then <strong>Serve</strong> before their patience bar runs out.</p>' +
+      '<p>Each day starts with just <strong>one</strong> customer. Clear them and the next wave brings <strong>two</strong> at once, then <strong>three</strong>&nbsp;&mdash; all the way up to <strong>six</strong> at a time!</p>' +
       '<p>Earn coins to buy upgrades between days. Lose 3 hearts of reputation and the bakery closes for the day.</p>' +
       (hs.day > 1 || hs.coins > 0 ? '<p>Best run: Day '+hs.day+' &middot; 🪙 '+hs.coins+'</p>' : '') +
       '<div class="modal-actions">' +
