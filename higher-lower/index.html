@@ -1,0 +1,660 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#22090F">
+<title>Pearl's Higher or Lower</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Libre+Baskerville:wght@700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* Layout: one card table. Deck on the left, the card in play on the right,
+     Higher / Lower under them, the cards already played run along the bottom rail.
+     A deliberate single look: burgundy baize under a dark wooden rail, in either theme. */
+  :root{
+    --rail:#22090F;
+    --felt:#5A1A2B;
+    --felt-hi:#7A2A3E;
+    --gold:#E9B949;
+    --card:#FFFDF6;
+    --ink:#1D1B24;
+    --ink-red:#C42339;
+    --text:#FCEFE7;
+    --muted:#D9B2B9;
+    --good:#FFD36B;
+    --bad:#FF8A80;
+    --line:rgba(233,185,73,.35);
+
+    --font-display:'Lilita One', 'Arial Rounded MT Bold', system-ui, sans-serif;
+    --font-body:'Nunito', system-ui, sans-serif;
+    --font-index:'Libre Baskerville', Georgia, 'Times New Roman', serif;
+
+    --card-w:clamp(118px, 38vw, 176px);
+    color-scheme:dark;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{background:var(--rail);}
+  body{
+    color:var(--text);
+    font-family:var(--font-body);
+    padding-inline:16px;
+    padding-block:16px 32px;
+    -webkit-text-size-adjust:100%;
+  }
+  button{
+    font-family:inherit;
+    touch-action:manipulation;
+    -webkit-tap-highlight-color:transparent;
+    -webkit-user-select:none;user-select:none;
+  }
+
+  .app{max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:14px;}
+
+  /* ---- header ---- */
+  .top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+  .title{display:flex;flex-direction:column;line-height:1;}
+  .title .by{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);}
+  .title h1{font-family:var(--font-display);font-weight:400;font-size:clamp(28px,7vw,38px);margin:4px 0 0;letter-spacing:.01em;text-wrap:balance;}
+  .stats{display:flex;gap:8px;}
+  .stat{
+    display:flex;flex-direction:column;align-items:center;min-width:64px;
+    border:1px solid var(--line);border-radius:12px;padding:6px 10px;
+    background:rgba(255,255,255,.04);
+  }
+  .stat .k{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);}
+  .stat .v{font-family:var(--font-display);font-size:22px;font-variant-numeric:tabular-nums;line-height:1.1;}
+  .stat.hot .v{color:var(--good);}
+
+  /* ---- table ---- */
+  .table{
+    position:relative;
+    border-radius:28px;
+    padding:22px 16px 18px;
+    background:
+      radial-gradient(ellipse at 50% 35%, var(--felt-hi), var(--felt) 70%);
+    box-shadow:
+      inset 0 0 0 3px var(--line),
+      inset 0 0 40px rgba(0,0,0,.45),
+      0 18px 40px -18px rgba(0,0,0,.8);
+    display:flex;flex-direction:column;align-items:center;gap:16px;
+  }
+  .spots{display:flex;justify-content:center;align-items:flex-start;gap:clamp(14px,5vw,36px);width:100%;}
+  .spot{display:flex;flex-direction:column;align-items:center;gap:8px;min-width:0;}
+  .spot-label{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);}
+
+  /* ---- cards ---- */
+  .card-wrap{width:var(--card-w);aspect-ratio:5/7;max-width:100%;perspective:900px;position:relative;}
+  .flipper{position:absolute;inset:0;transform-style:preserve-3d;transition:transform .45s cubic-bezier(.3,.7,.3,1);}
+  .flipper.flipped{transform:rotateY(180deg);}
+  .face,.back{
+    position:absolute;inset:0;border-radius:calc(var(--card-w) * .08);
+    backface-visibility:hidden;-webkit-backface-visibility:hidden;
+    box-shadow:0 10px 18px -8px rgba(0,0,0,.6);
+  }
+  .face{transform:rotateY(180deg);}
+  .flipper.static .face{transform:none;}
+
+  .back{
+    background:var(--card);
+    padding:calc(var(--card-w) * .055);
+  }
+  .back::before{
+    content:"";position:absolute;inset:calc(var(--card-w) * .055);border-radius:calc(var(--card-w) * .045);
+    background:
+      repeating-linear-gradient(45deg, transparent 0 7px, rgba(233,185,73,.55) 7px 8px),
+      repeating-linear-gradient(-45deg, transparent 0 7px, rgba(233,185,73,.55) 7px 8px),
+      var(--felt);
+    box-shadow:inset 0 0 0 2px var(--gold);
+  }
+  .back::after{
+    content:"P";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    width:calc(var(--card-w) * .32);height:calc(var(--card-w) * .32);border-radius:50%;
+    display:grid;place-items:center;
+    font-family:var(--font-display);font-size:calc(var(--card-w) * .2);
+    background:var(--card);color:var(--felt);box-shadow:0 0 0 2px var(--gold);
+  }
+  .stack{position:relative;}
+  .stack::before,.stack::after{
+    content:"";position:absolute;inset:0;border-radius:calc(var(--card-w) * .08);
+    background:var(--card);box-shadow:0 2px 0 rgba(0,0,0,.25);
+  }
+  .stack::before{transform:translate(4px,4px);opacity:.75;}
+  .stack::after{transform:translate(2px,2px);opacity:.9;}
+  .stack.empty::before,.stack.empty::after{display:none;}
+  .stack .flipper{z-index:1;}
+
+  .face{
+    background:var(--card);color:var(--ink);
+    overflow:hidden;
+  }
+  .face.red{color:var(--ink-red);}
+  .corner{
+    position:absolute;display:flex;flex-direction:column;align-items:center;line-height:.95;
+    font-family:var(--font-index);font-weight:700;
+    font-size:calc(var(--card-w) * .15);
+  }
+  .corner .s{font-size:.8em;font-family:system-ui, sans-serif;}
+  .corner.tl{top:calc(var(--card-w) * .05);left:calc(var(--card-w) * .05);}
+  .corner.br{bottom:calc(var(--card-w) * .05);right:calc(var(--card-w) * .05);transform:rotate(180deg);}
+  .corner .r.ten{letter-spacing:-.08em;}
+  .pips{position:absolute;inset:calc(var(--card-w) * .2) calc(var(--card-w) * .18);}
+  .pip{
+    position:absolute;transform:translate(-50%,-50%);
+    font-size:calc(var(--card-w) * .17);line-height:1;font-family:system-ui, sans-serif;
+  }
+  .pip.down{transform:translate(-50%,-50%) rotate(180deg);}
+  .pip.ace{font-size:calc(var(--card-w) * .5);}
+  .court{
+    position:absolute;inset:calc(var(--card-w) * .2) calc(var(--card-w) * .2);
+    border:2px solid currentColor;border-radius:calc(var(--card-w) * .04);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+    background:repeating-linear-gradient(135deg, transparent 0 6px, rgba(233,185,73,.18) 6px 7px);
+  }
+  .court .big{font-family:var(--font-display);font-size:calc(var(--card-w) * .38);line-height:1;}
+  .court .crown{font-size:calc(var(--card-w) * .16);line-height:1;font-family:system-ui, sans-serif;}
+  .court .word{font-family:var(--font-body);font-weight:800;font-size:calc(var(--card-w) * .07);letter-spacing:.1em;text-transform:uppercase;}
+
+  .landed{animation:land .32s ease-out;}
+  @keyframes land{from{transform:translateY(-6px) scale(1.04);}to{transform:none;}}
+
+  /* ---- message + odds ---- */
+  .msg{
+    min-height:2.6em;text-align:center;font-weight:800;font-size:16px;line-height:1.3;
+    max-width:32ch;text-wrap:balance;
+  }
+  .msg.good{color:var(--good);}
+  .msg.bad{color:var(--bad);}
+
+  .odds{width:100%;max-width:360px;display:flex;flex-direction:column;gap:6px;}
+  .odds-row{display:grid;grid-template-columns:4.6em minmax(0,1fr) 3em;gap:8px;align-items:center;font-size:13px;font-weight:800;}
+  .odds-row .pct{text-align:right;font-variant-numeric:tabular-nums;}
+  .odds-track{height:10px;border-radius:999px;background:rgba(0,0,0,.3);overflow:hidden;}
+  .odds-fill{height:100%;border-radius:999px;background:var(--gold);transition:width .3s;}
+
+  /* ---- buttons ---- */
+  .controls{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%;max-width:420px;}
+  .guess{
+    display:flex;align-items:center;justify-content:center;gap:8px;
+    min-height:64px;border:none;border-radius:18px;cursor:pointer;
+    font-family:var(--font-display);font-size:24px;letter-spacing:.02em;
+    color:var(--rail);background:var(--gold);
+    box-shadow:0 6px 0 #8F6A16, 0 12px 20px -10px rgba(0,0,0,.6);
+    transition:transform .06s, box-shadow .06s;
+  }
+  .guess.lower{background:var(--card);color:var(--felt);box-shadow:0 6px 0 #B9A9A0, 0 12px 20px -10px rgba(0,0,0,.6);}
+  .guess:active:not(:disabled){transform:translateY(4px);box-shadow:0 2px 0 #8F6A16;}
+  .guess.lower:active:not(:disabled){box-shadow:0 2px 0 #B9A9A0;}
+  .guess:disabled{opacity:.45;cursor:default;}
+  .guess:focus-visible{outline:3px solid var(--text);outline-offset:3px;}
+  .guess .arrow{font-size:.8em;}
+
+  .again{
+    display:none;
+    min-height:56px;padding:0 28px;border:none;border-radius:18px;cursor:pointer;
+    font-family:var(--font-display);font-size:22px;color:var(--rail);background:var(--gold);
+    box-shadow:0 6px 0 #8F6A16;
+  }
+  .again:focus-visible{outline:3px solid var(--text);outline-offset:3px;}
+  .over .controls{display:none;}
+  .over .again{display:block;}
+
+  /* ---- played cards ---- */
+  .rail{display:flex;flex-direction:column;gap:8px;}
+  .rail-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;}
+  .rail-head h2{font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0;}
+  .toggle{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:800;cursor:pointer;}
+  .toggle input{width:20px;height:20px;accent-color:var(--gold);margin:0;}
+  .played{
+    display:flex;gap:6px;overflow-x:auto;padding:4px 2px 8px;
+    scrollbar-width:thin;scrollbar-color:var(--line) transparent;
+    min-height:66px;
+  }
+  .mini{
+    flex:none;width:40px;height:56px;border-radius:6px;background:var(--card);color:var(--ink);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1;
+    font-family:var(--font-index);font-weight:700;font-size:15px;
+    box-shadow:0 3px 6px -3px rgba(0,0,0,.6);position:relative;
+  }
+  .mini.red{color:var(--ink-red);}
+  .mini .s{font-family:system-ui, sans-serif;font-size:14px;margin-top:3px;}
+  .mini .mark{
+    position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;
+    display:grid;place-items:center;font-family:var(--font-body);font-size:11px;font-weight:800;
+    background:var(--rail);color:var(--good);box-shadow:0 0 0 1.5px currentColor;
+  }
+  .mini .mark.x{color:var(--bad);}
+  .mini .mark.eq{color:var(--muted);}
+  .played-empty{color:var(--muted);font-size:13px;align-self:center;}
+
+  .rules{color:var(--muted);font-size:13px;line-height:1.5;margin:0;}
+  .rules strong{color:var(--text);}
+
+  /* ---- leaderboard ---- */
+  .score-form{width:100%;max-width:420px;display:none;flex-direction:column;gap:6px;}
+  .over.can-submit .score-form{display:flex;}
+  .score-form label{font-weight:800;font-size:13px;text-align:center;}
+  .name-row{display:flex;gap:8px;}
+  .name-row input{
+    flex:1 1 auto;min-width:0;
+    font:inherit;font-size:16px;font-weight:800;
+    color:var(--ink);background:var(--card);
+    border:2px solid var(--line);border-radius:14px;padding:10px 12px;
+  }
+  .name-row input:focus{outline:3px solid var(--gold);outline-offset:1px;}
+  .name-row button{
+    flex:none;min-height:48px;padding:0 16px;border:none;border-radius:14px;cursor:pointer;
+    font-family:var(--font-display);font-size:18px;color:var(--rail);background:var(--card);
+    box-shadow:0 4px 0 #B9A9A0;
+  }
+  .name-row button:disabled{opacity:.6;cursor:default;}
+  .name-row button:focus-visible{outline:3px solid var(--text);outline-offset:2px;}
+  .form-msg{margin:0;font-size:13px;font-weight:800;text-align:center;min-height:1.2em;color:var(--muted);}
+  .form-msg.bad{color:var(--bad);}
+
+  .board-sec{display:flex;flex-direction:column;gap:10px;scroll-margin-top:16px;}
+  .board-sec h2{font-family:var(--font-display);font-weight:400;font-size:24px;margin:0;}
+  .board-sec .sub{color:var(--muted);font-size:13px;margin:-6px 0 0;}
+  .board{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;}
+  .board li{
+    display:grid;grid-template-columns:2em minmax(0,1fr) auto;gap:10px;align-items:center;
+    padding:8px 12px;border-radius:12px;background:rgba(255,255,255,.05);
+    font-weight:800;font-size:15px;font-variant-numeric:tabular-nums;
+  }
+  .board li .rank{color:var(--muted);}
+  .board li:nth-child(-n+3) .rank{color:var(--gold);}
+  .board li .who{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .board li .n{font-family:var(--font-display);font-weight:400;font-size:18px;}
+  .board li .n small{font-family:var(--font-body);font-size:11px;color:var(--muted);font-weight:800;margin-left:3px;}
+  .board li.me{background:rgba(233,185,73,.16);box-shadow:inset 0 0 0 2px var(--gold);}
+  .board-empty{color:var(--muted);font-size:14px;margin:0;}
+  .board-btn{
+    align-self:stretch;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    min-width:52px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.04);
+    color:var(--text);font-size:20px;cursor:pointer;text-decoration:none;
+  }
+  .board-btn:focus-visible{outline:3px solid var(--gold);outline-offset:2px;}
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:0.001ms !important;transition-duration:0.001ms !important;}
+  }
+  @media (max-width:420px){
+    .stat{min-width:56px;padding:5px 8px;}
+    .stat .v{font-size:19px;}
+    .table{padding:18px 12px 16px;border-radius:22px;}
+    .guess{min-height:60px;font-size:22px;}
+  }
+</style>
+<style>body{margin:0;padding-top:max(16px, env(safe-area-inset-top, 0px));padding-bottom:max(32px, env(safe-area-inset-bottom, 0px));}</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="top">
+    <div class="title">
+      <span class="by">Pearl's card table</span>
+      <h1>Higher or Lower</h1>
+    </div>
+    <div class="stats">
+      <div class="stat" id="streakBox"><span class="k">Streak</span><span class="v" id="streak">0</span></div>
+      <div class="stat"><span class="k">Best</span><span class="v" id="best">0</span></div>
+      <div class="stat"><span class="k">Left</span><span class="v" id="left">51</span></div>
+      <a class="board-btn" href="#leaderboard" id="boardBtn" aria-label="Leaderboard" title="Leaderboard">🏆</a>
+    </div>
+  </header>
+
+  <main class="table" id="table">
+    <div class="spots">
+      <div class="spot">
+        <span class="spot-label">Next card</span>
+        <div class="card-wrap stack" id="deckWrap">
+          <div class="flipper" id="deckFlipper">
+            <div class="back"></div>
+            <div class="face" id="deckFace"></div>
+          </div>
+        </div>
+      </div>
+      <div class="spot">
+        <span class="spot-label">This card</span>
+        <div class="card-wrap" id="currentWrap">
+          <div class="flipper static"><div class="face" id="currentFace"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="msg" id="msg" role="status" aria-live="polite">Will the next card be higher or lower?</div>
+
+    <div class="odds" id="odds" hidden>
+      <div class="odds-row"><span>Higher</span><div class="odds-track"><div class="odds-fill" id="oddsHi"></div></div><span class="pct" id="pctHi"></span></div>
+      <div class="odds-row"><span>Lower</span><div class="odds-track"><div class="odds-fill" id="oddsLo"></div></div><span class="pct" id="pctLo"></span></div>
+      <div class="odds-row"><span>Same</span><div class="odds-track"><div class="odds-fill" id="oddsEq"></div></div><span class="pct" id="pctEq"></span></div>
+    </div>
+
+    <div class="controls">
+      <button class="guess higher" id="btnHigher" type="button"><span class="arrow" aria-hidden="true">▲</span>Higher</button>
+      <button class="guess lower" id="btnLower" type="button"><span class="arrow" aria-hidden="true">▼</span>Lower</button>
+    </div>
+    <form class="score-form" id="scoreForm" novalidate>
+      <label for="playerName">Put your score on the leaderboard</label>
+      <div class="name-row">
+        <input id="playerName" name="playerName" maxlength="16" autocomplete="nickname" placeholder="Your name">
+        <button type="submit" id="scoreSubmit">Add</button>
+      </div>
+      <p class="form-msg" id="scoreMsg" role="status"></p>
+    </form>
+    <button class="again" id="btnAgain" type="button">Shuffle &amp; play again</button>
+  </main>
+
+  <section class="rail">
+    <div class="rail-head">
+      <h2>Cards played</h2>
+      <label class="toggle" for="showOdds"><input type="checkbox" id="showOdds"> Show the chances</label>
+    </div>
+    <div class="played" id="played"></div>
+    <p class="rules" id="rules"><strong>How to play:</strong> guess whether the next card from the deck is higher or lower. Aces are high, 2s are low. If it&rsquo;s the same number you&rsquo;re safe. Get through the whole deck of 52 to win! Keyboard: &uarr; and &darr;.</p>
+  </section>
+
+  <section class="board-sec" id="leaderboard">
+    <h2>Leaderboard</h2>
+    <p class="sub">Most right in a row. Top 10.</p>
+    <div id="boardList"><p class="board-empty">Loading the leaderboard&hellip;</p></div>
+  </section>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var RANKS = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+  var RANK_NAMES = ['2','3','4','5','6','7','8','9','10','Jack','Queen','King','Ace'];
+  var SUITS = [
+    {g:'♠︎', name:'spades', red:false},
+    {g:'♥︎', name:'hearts', red:true},
+    {g:'♦︎', name:'diamonds', red:true},
+    {g:'♣︎', name:'clubs', red:false}
+  ];
+  var BEST_KEY = 'higherLowerBest';
+  var ODDS_KEY = 'higherLowerShowOdds';
+  var NAME_KEY = 'gamesPlayerName';
+
+  // Shared leaderboard (Supabase). The publishable key is meant to be public:
+  // the table only allows reading and adding scores.
+  var BOARD_URL = 'https://ppqlwnqpimictchkpqyu.supabase.co/rest/v1/higher_lower_scores';
+  var BOARD_KEY = 'sb_publishable_UoMfluUBvmWgHxPD3gvBaA_zxN6LudO';
+
+  // Pip positions (x%, y%) inside the pip area for 2 to 10
+  var PIPS = {
+    2:[[50,0],[50,100]],
+    3:[[50,0],[50,50],[50,100]],
+    4:[[15,0],[85,0],[15,100],[85,100]],
+    5:[[15,0],[85,0],[50,50],[15,100],[85,100]],
+    6:[[15,0],[85,0],[15,50],[85,50],[15,100],[85,100]],
+    7:[[15,0],[85,0],[50,25],[15,50],[85,50],[15,100],[85,100]],
+    8:[[15,0],[85,0],[50,25],[15,50],[85,50],[50,75],[15,100],[85,100]],
+    9:[[15,0],[85,0],[15,33],[85,33],[50,50],[15,67],[85,67],[15,100],[85,100]],
+    10:[[15,0],[85,0],[50,17],[15,33],[85,33],[15,67],[85,67],[50,83],[15,100],[85,100]]
+  };
+
+  var $ = function(id){ return document.getElementById(id); };
+  var state, busy = false;
+
+  function load(key, fallback){ try { var v = localStorage.getItem(key); return v === null ? fallback : JSON.parse(v); } catch(e){ return fallback; } }
+  function save(key, v){ try { localStorage.setItem(key, JSON.stringify(v)); } catch(e){} }
+
+  function randInt(n){
+    if (window.crypto && crypto.getRandomValues){
+      var a = new Uint32Array(1); crypto.getRandomValues(a); return a[0] % n;
+    }
+    return Math.floor(Math.random() * n);
+  }
+  function shuffled(){
+    var d = [];
+    for (var s=0;s<4;s++) for (var r=0;r<13;r++) d.push({r:r, s:s});
+    for (var i=d.length-1;i>0;i--){ var j = randInt(i+1); var t = d[i]; d[i] = d[j]; d[j] = t; }
+    return d;
+  }
+
+  function newGame(){
+    return { deck: shuffled(), pos: 0, streak: 0, status: 'playing', marks: [] };
+  }
+
+  function cardName(c){ return RANK_NAMES[c.r] + ' of ' + SUITS[c.s].name; }
+
+  function faceHTML(c){
+    var suit = SUITS[c.s], rank = RANKS[c.r];
+    var corner = '<span class="r'+(rank==='10'?' ten':'')+'">'+rank+'</span><span class="s">'+suit.g+'</span>';
+    var mid = '';
+    if (rank === 'A'){
+      mid = '<div class="pips"><span class="pip ace" style="left:50%;top:50%">'+suit.g+'</span></div>';
+    } else if (c.r >= 9 && c.r <= 11){
+      var word = ['Jack','Queen','King'][c.r-9];
+      var crown = ['✦','❀','♛︎'][c.r-9];
+      mid = '<div class="court"><span class="crown" aria-hidden="true">'+crown+'</span><span class="big">'+rank+'</span><span class="word">'+word+'</span></div>';
+    } else {
+      mid = '<div class="pips">' + PIPS[+rank].map(function(p){
+        return '<span class="pip'+(p[1]>50?' down':'')+'" style="left:'+p[0]+'%;top:'+p[1]+'%">'+suit.g+'</span>';
+      }).join('') + '</div>';
+    }
+    return '<span class="corner tl">'+corner+'</span>' + mid + '<span class="corner br">'+corner+'</span>';
+  }
+  function paintFace(el, c){
+    el.className = 'face' + (SUITS[c.s].red ? ' red' : '');
+    el.innerHTML = faceHTML(c);
+    el.setAttribute('aria-label', cardName(c));
+    el.setAttribute('role', 'img');
+  }
+
+  function renderStats(){
+    $('streak').textContent = state.streak;
+    $('best').textContent = load(BEST_KEY, 0);
+    $('left').textContent = state.deck.length - 1 - state.pos;
+    $('streakBox').classList.toggle('hot', state.streak >= 5);
+    $('deckWrap').classList.toggle('empty', state.deck.length - 1 - state.pos <= 1);
+  }
+
+  function renderOdds(){
+    var show = $('showOdds').checked && state.status === 'playing';
+    $('odds').hidden = !show;
+    if (!show) return;
+    var cur = state.deck[state.pos], rest = state.deck.slice(state.pos+1);
+    var hi = 0, lo = 0, eq = 0;
+    rest.forEach(function(c){ if (c.r > cur.r) hi++; else if (c.r < cur.r) lo++; else eq++; });
+    var n = rest.length || 1;
+    [['Hi',hi],['Lo',lo],['Eq',eq]].forEach(function(p){
+      var pct = Math.round(100*p[1]/n);
+      $('odds'+p[0]).style.width = pct + '%';
+      $('pct'+p[0]).textContent = pct + '%';
+    });
+  }
+
+  function renderPlayed(){
+    var box = $('played');
+    if (!state.pos){
+      box.innerHTML = '<span class="played-empty">Cards you get through will line up here.</span>';
+      return;
+    }
+    var html = '';
+    for (var i=0;i<state.pos;i++){
+      var c = state.deck[i], m = state.marks[i];
+      html += '<div class="mini'+(SUITS[c.s].red?' red':'')+'" title="'+cardName(c)+'">' +
+        RANKS[c.r] + '<span class="s">'+SUITS[c.s].g+'</span>' +
+        (m ? '<span class="mark '+(m==='x'?'x':m==='eq'?'eq':'')+'" aria-hidden="true">'+(m==='x'?'✕':m==='eq'?'=':'✓')+'</span>' : '') +
+        '</div>';
+    }
+    box.innerHTML = html;
+    box.scrollLeft = box.scrollWidth;
+  }
+
+  // ---------- leaderboard ----------
+
+  function esc(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+  function fetchBoard(){
+    return fetch(BOARD_URL + '?select=id,name,streak&order=streak.desc,created_at.asc&limit=10',
+      {headers:{apikey:BOARD_KEY}, cache:'no-store'})
+      .then(function(r){ if (!r.ok) throw new Error('HTTP '+r.status); return r.json(); });
+  }
+  function postScore(name, streak){
+    return fetch(BOARD_URL, {
+      method:'POST',
+      headers:{apikey:BOARD_KEY, 'Content-Type':'application/json', Prefer:'return=representation'},
+      body: JSON.stringify({name:name, streak:streak})
+    }).then(function(r){ if (!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+      .then(function(rows){ return rows && rows[0]; });
+  }
+  // Resolves with the 1-based rank of row `mine` in the top 10, or 0.
+  function renderBoard(mine){
+    var list = $('boardList');
+    return fetchBoard().then(function(rows){
+      if (!rows.length){
+        list.innerHTML = '<p class="board-empty">No scores yet. Finish a game to be first on the board!</p>';
+        return 0;
+      }
+      var rank = 0;
+      list.innerHTML = '<ol class="board">' + rows.map(function(r, i){
+        var me = mine && r.id === mine;
+        if (me) rank = i + 1;
+        return '<li'+(me?' class="me"':'')+'><span class="rank">'+(i+1)+'</span>' +
+          '<span class="who">'+esc(r.name)+'</span>' +
+          '<span class="n">'+r.streak+'<small>in a row</small></span></li>';
+      }).join('') + '</ol>';
+      return rank;
+    }).catch(function(){
+      list.innerHTML = '<p class="board-empty">Couldn&rsquo;t load the leaderboard. Check your internet connection and try again later.</p>';
+      return 0;
+    });
+  }
+
+  $('scoreForm').addEventListener('submit', function(e){
+    e.preventDefault();
+    var input = $('playerName'), btn = $('scoreSubmit'), msg = $('scoreMsg');
+    var name = input.value.replace(/\s+/g,' ').trim().slice(0,16);
+    if (!name){
+      msg.className = 'form-msg bad'; msg.textContent = 'Type your name first.'; input.focus(); return;
+    }
+    if (state.submitted || state.streak < 1) return;
+    btn.disabled = input.disabled = true;
+    msg.className = 'form-msg'; msg.textContent = 'Adding your score…';
+    save(NAME_KEY, name);
+    postScore(name, state.streak).then(function(row){
+      state.submitted = true;
+      return renderBoard(row && row.id).then(function(rank){
+        msg.textContent = rank ? ('You’re number '+rank+' on the leaderboard!') : 'Score added. Not in the top 10 this time.';
+        btn.textContent = 'Added';
+      });
+    }).catch(function(){
+      btn.disabled = input.disabled = false;
+      msg.className = 'form-msg bad';
+      msg.textContent = 'Couldn’t add your score. Check your internet connection and try again.';
+    });
+  });
+
+  function resetScoreForm(){
+    var input = $('playerName'), btn = $('scoreSubmit');
+    input.value = load(NAME_KEY, '') || '';
+    input.disabled = btn.disabled = false;
+    btn.textContent = 'Add';
+    $('scoreMsg').className = 'form-msg';
+    $('scoreMsg').textContent = '';
+  }
+
+  function setMsg(text, kind){
+    var m = $('msg');
+    m.textContent = text;
+    m.className = 'msg' + (kind ? ' ' + kind : '');
+  }
+
+  function renderAll(){
+    paintFace($('currentFace'), state.deck[state.pos]);
+    $('table').classList.toggle('over', state.status !== 'playing');
+    $('table').classList.toggle('can-submit', state.status !== 'playing' && state.streak >= 1 && !state.submitted);
+    $('btnHigher').disabled = $('btnLower').disabled = state.status !== 'playing';
+    renderStats(); renderOdds(); renderPlayed();
+  }
+
+  function guess(dir){
+    if (busy || state.status !== 'playing') return;
+    busy = true;
+    $('btnHigher').disabled = $('btnLower').disabled = true;
+
+    var cur = state.deck[state.pos], next = state.deck[state.pos+1];
+    var outcome = next.r > cur.r ? 'higher' : next.r < cur.r ? 'lower' : 'same';
+
+    var flipper = $('deckFlipper');
+    paintFace($('deckFace'), next);
+    flipper.classList.add('flipped');
+
+    setTimeout(function(){
+      var name = cardName(next);
+      if (outcome === 'same'){
+        state.marks[state.pos] = 'eq';
+        setMsg('The ' + name + '. Same number, so you’re safe!', '');
+      } else if (outcome === dir){
+        state.marks[state.pos] = 'ok';
+        state.streak++;
+        if (state.streak > load(BEST_KEY, 0)) save(BEST_KEY, state.streak);
+        setMsg('The ' + name + '. ' + (dir === 'higher' ? 'Higher' : 'Lower') + ', well done!', 'good');
+      } else {
+        state.marks[state.pos] = 'x';
+        state.status = 'lost';
+        setMsg('Oh no, the ' + name + ' is ' + outcome + '. You got ' + state.streak + ' right in a row.', 'bad');
+      }
+      state.pos++;
+      if (state.status === 'playing' && state.pos >= state.deck.length - 1){
+        state.status = 'won';
+        setMsg('You got through the whole deck! ' + state.streak + ' right. Amazing!', 'good');
+      }
+
+      // the revealed card becomes the card in play; the deck turns back over
+      flipper.style.transition = 'none';
+      flipper.classList.remove('flipped');
+      void flipper.offsetWidth;
+      flipper.style.transition = '';
+      var cw = $('currentWrap');
+      cw.classList.remove('landed'); void cw.offsetWidth; cw.classList.add('landed');
+
+      renderAll();
+      busy = false;
+      if (state.status !== 'playing'){
+        resetScoreForm();
+        (state.streak >= 1 ? $('playerName') : $('btnAgain')).focus({preventScroll:true});
+      }
+    }, 620);
+  }
+
+  function restart(){
+    state = newGame();
+    setMsg('New deck shuffled. Higher or lower?', '');
+    renderAll();
+  }
+
+  $('btnHigher').addEventListener('click', function(){ guess('higher'); });
+  $('btnLower').addEventListener('click', function(){ guess('lower'); });
+  $('btnAgain').addEventListener('click', restart);
+  $('showOdds').addEventListener('change', function(){ save(ODDS_KEY, this.checked); renderOdds(); });
+  document.addEventListener('keydown', function(e){
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON' && e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+    if (e.key === 'ArrowUp'){ e.preventDefault(); guess('higher'); }
+    else if (e.key === 'ArrowDown'){ e.preventDefault(); guess('lower'); }
+    else if ((e.key === 'Enter' || e.key === ' ') && state.status !== 'playing' && document.activeElement !== $('btnAgain')){ e.preventDefault(); restart(); }
+  });
+
+  function boot(data){
+    state = (data && data.state && data.state.deck) ? data.state : newGame();
+    $('showOdds').checked = !!load(ODDS_KEY, false);
+    resetScoreForm();
+    renderAll();
+    renderBoard(0);
+  }
+
+  var hot = window.claude && window.claude.hot;
+  if (hot && hot.snapshot) hot.snapshot(function(){ return {state: state}; });
+  if (hot && hot.ready) hot.ready(boot);
+  else boot(hot ? hot.data : {});
+})();
+</script>
+</body>
+</html>
