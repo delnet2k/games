@@ -1,3 +1,9 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#FFF6EC">
 <title>Cake Chaos</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -70,12 +76,18 @@
     font-family:'Nunito',system-ui,sans-serif;
     padding-inline:16px;
     padding-block:20px 40px;
+    -webkit-text-size-adjust:100%;
   }
   h1,h2,h3,.display{
     font-family:'Fredoka',system-ui,sans-serif;
     text-wrap:balance;
   }
-  button{font-family:inherit;}
+  button{
+    font-family:inherit;
+    touch-action:manipulation;
+    -webkit-tap-highlight-color:transparent;
+    -webkit-user-select:none;user-select:none;
+  }
 
   .app{max-width:920px;margin:0 auto;display:flex;flex-direction:column;gap:18px;}
 
@@ -94,12 +106,13 @@
   .avatars svg{margin-right:-10px;filter:drop-shadow(0 3px 4px rgba(0,0,0,0.15));}
   .brand-text{display:flex;flex-direction:column;line-height:1.15;margin-left:6px;}
   .brand-text .by{font-size:12px;color:var(--text-muted);font-weight:700;letter-spacing:.04em;text-transform:uppercase;}
-  .brand-text .title{font-family:'Fredoka';font-weight:700;font-size:21px;}
+  .brand-text .title{font-family:'Fredoka',system-ui,sans-serif;font-weight:700;font-size:21px;}
   .stats{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
   .stat{
     display:flex;align-items:center;gap:6px;
     font-weight:800;font-variant-numeric:tabular-nums;
     background:var(--surface-2);border-radius:999px;padding:6px 12px;font-size:14px;
+    white-space:nowrap;
   }
   .stat .dim{color:var(--text-muted);font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.03em;}
   .hearts{display:flex;gap:3px;}
@@ -108,7 +121,7 @@
   /* ---- intro / tip strip ---- */
   .tip{
     font-size:14px;color:var(--text-muted);
-    display:flex;align-items:center;gap:8px;
+    line-height:1.4;
   }
 
   /* ---- counter / slots ---- */
@@ -124,6 +137,7 @@
     padding:14px;
     display:flex;flex-direction:column;gap:10px;
     min-height:260px;
+    min-width:0;
     box-shadow:var(--shadow);
     position:relative;
     overflow:hidden;
@@ -134,6 +148,7 @@
     color:var(--text-muted);
     min-height:260px;
     border-style:dashed;
+    text-align:center;
   }
   .empty-stand{width:56px;height:56px;opacity:.55;}
   .empty-label{font-size:13px;margin-top:8px;font-weight:700;}
@@ -148,7 +163,7 @@
     width:26px;height:26px;border-radius:50%;flex:none;
     border:2px solid rgba(0,0,0,0.12);
   }
-  .ticket .names{display:flex;flex-direction:column;line-height:1.2;}
+  .ticket .names{display:flex;flex-direction:column;line-height:1.2;min-width:0;}
   .ticket .flavor-name{font-weight:800;font-size:13px;}
   .ticket .topping-name{font-size:12px;color:var(--text-muted);font-weight:700;display:flex;align-items:center;gap:4px;}
   .ticket .rush-tag{
@@ -172,6 +187,7 @@
     flex:1;
     display:flex;align-items:center;justify-content:center;
     font-size:40px;
+    min-height:64px;
     border-radius:12px;
     background:var(--surface-2);
     position:relative;
@@ -181,7 +197,7 @@
 
   .cake-art{width:56px;height:56px;}
 
-  .toppings-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;}
+  .toppings-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;}
   .topping-btn{
     display:flex;align-items:center;justify-content:center;gap:5px;
     border:1.5px solid var(--border);
@@ -189,15 +205,19 @@
     color:var(--text);
     border-radius:10px;
     padding:8px 6px;
+    min-height:44px;
+    min-width:0;
     font-weight:700;font-size:12px;
+    line-height:1.15;text-align:center;
     cursor:pointer;
   }
-  .topping-btn:hover{border-color:var(--accent-phoebe);}
+  @media (hover:hover){ .topping-btn:hover{border-color:var(--accent-phoebe);} }
+  .topping-btn:active{background:var(--surface-2);}
   .topping-btn:focus-visible{outline:2px solid var(--accent-phoebe);outline-offset:2px;}
 
   .primary-btn{
     border:none;border-radius:12px;
-    padding:10px 14px;font-weight:800;font-size:14px;
+    padding:10px 14px;min-height:44px;font-weight:800;font-size:14px;
     cursor:pointer;color:var(--btn-ink);
     background:var(--accent-phoebe);
     box-shadow:0 4px 0 var(--accent-phoebe-ink);
@@ -218,7 +238,7 @@
 
   .float-toast{
     position:absolute;top:6px;left:50%;transform:translateX(-50%);
-    font-weight:800;font-size:15px;pointer-events:none;
+    font-weight:800;font-size:15px;pointer-events:none;white-space:nowrap;
     animation:floatUp 1s ease-out forwards;
     z-index:3;
   }
@@ -238,7 +258,7 @@
     position:fixed;inset:0;
     background:rgba(34,21,16,0.55);
     display:flex;align-items:center;justify-content:center;
-    padding:20px;
+    padding:max(16px, env(safe-area-inset-top, 0px)) 16px max(16px, env(safe-area-inset-bottom, 0px));
     z-index:10;
   }
   .overlay[hidden]{
@@ -250,7 +270,8 @@
     border-radius:20px;
     padding:24px;
     max-width:440px;width:100%;
-    max-height:86vh;overflow-y:auto;
+    max-height:86vh;max-height:86dvh;overflow-y:auto;
+    -webkit-overflow-scrolling:touch;overscroll-behavior:contain;
     box-shadow:var(--shadow);
   }
   .modal h2{margin:0 0 6px;font-size:24px;}
@@ -264,15 +285,15 @@
     padding:10px 12px;margin-bottom:10px;
   }
   .upgrade-card .icon{font-size:22px;flex:none;}
-  .upgrade-card .info{flex:1;}
+  .upgrade-card .info{flex:1;min-width:0;}
   .upgrade-card .info .name{font-weight:800;font-size:14px;}
   .upgrade-card .info .desc{font-size:12px;color:var(--text-muted);}
   .upgrade-card .levels{display:flex;gap:3px;margin-top:4px;}
   .upgrade-card .levels span{width:8px;height:8px;border-radius:50%;background:var(--border);}
   .upgrade-card .levels span.on{background:var(--accent-phoebe);}
   .buy-btn{
-    border:none;border-radius:10px;padding:8px 10px;font-weight:800;font-size:12px;
-    background:var(--gold);color:#3A2600;cursor:pointer;white-space:nowrap;
+    border:none;border-radius:10px;padding:8px 10px;min-height:40px;font-weight:800;font-size:12px;
+    background:var(--gold);color:#3A2600;cursor:pointer;white-space:nowrap;flex:none;
   }
   .buy-btn:disabled{opacity:.4;cursor:not-allowed;}
 
@@ -284,13 +305,54 @@
     *{animation-duration:0.001ms !important;animation-iteration-count:1 !important;transition-duration:0.001ms !important;}
   }
 
-  @media (max-width:480px){
+  /* ---- phones: two cards per row, compact header ---- */
+  @media (max-width:560px){
+    body{padding-block:12px 28px;}
+    .app{gap:12px;}
+
+    .topbar{padding:10px 12px;border-radius:14px;gap:10px;}
+    .avatars svg{width:32px;height:32px;}
+    .brand-text .by{font-size:10px;}
     .brand-text .title{font-size:18px;}
-    .stats{gap:8px;}
-    .stat{padding:5px 9px;font-size:13px;}
+    .stats{width:100%;gap:6px;justify-content:space-between;}
+    .stat{padding:5px 9px;font-size:13px;gap:4px;}
+    .stat .dim{font-size:10px;}
+    .hearts svg{width:16px;height:16px;}
+
+    .tip{font-size:13px;}
+
+    .counter{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+    .counter > .slot:only-child{grid-column:1 / -1;}
+
+    .slot{padding:10px;gap:8px;min-height:230px;border-radius:14px;}
+    .slot.empty{min-height:230px;}
+    .empty-stand{width:44px;height:44px;}
+    .empty-label{font-size:12px;}
+
+    .ticket{padding:6px 8px;gap:7px;flex-wrap:wrap;border-radius:10px;}
+    .ticket .swatch{width:20px;height:20px;}
+    .ticket .flavor-name{font-size:12px;}
+    .ticket .topping-name{font-size:11px;}
+    .ticket .rush-tag{font-size:9px;padding:2px 6px;}
+
+    .stage-visual{font-size:32px;min-height:56px;border-radius:10px;}
+    .cake-art{width:48px;height:48px;}
+
+    .toppings-grid{gap:5px;}
+    .topping-btn{flex-direction:column;gap:2px;padding:6px 3px;font-size:11px;min-height:50px;}
+    .topping-btn svg, .topping-btn span[aria-hidden]{font-size:16px;}
+
+    .primary-btn{padding:12px 10px;font-size:15px;}
+
+    .modal{padding:18px;border-radius:16px;}
+    .modal h2{font-size:21px;}
+    .modal .row-stats .pill{padding:6px 12px;}
+    .modal-actions .primary-btn{width:100%;}
   }
 </style>
-
+<style>body{margin:0;padding-top:max(20px, env(safe-area-inset-top, 0px));padding-bottom:max(40px, env(safe-area-inset-bottom, 0px));}@media (max-width:560px){body{padding-top:max(12px, env(safe-area-inset-top, 0px));padding-bottom:max(28px, env(safe-area-inset-bottom, 0px));}}</style>
+</head>
+<body>
 <div class="app">
   <header class="topbar">
     <div class="brand">
@@ -327,7 +389,7 @@
     </div>
   </header>
 
-  <div class="tip" id="tipStrip">Click <strong>Bake</strong> to start an order, match the <strong>topping</strong>, then <strong>Serve</strong> before patience runs out!</div>
+  <div class="tip" id="tipStrip">Tap <strong>Bake</strong> to start an order, match the <strong>topping</strong>, then <strong>Serve</strong> before patience runs out!</div>
 
   <main class="counter" id="counter"></main>
 
@@ -752,6 +814,7 @@
   function openModal(html){
     modal.innerHTML = html;
     overlay.hidden = false;
+    modal.scrollTop = 0;
   }
   function closeModal(){
     overlay.hidden = true;
@@ -872,7 +935,7 @@
   function showIntro(){
     var hs = loadHighScore();
     var html = '<h2>Welcome to Cake Chaos!</h2>' +
-      '<p>Pearl and Phoebe are opening the counter. Customers queue up with an order ticket &mdash; a flavour and a topping. Click <strong>Bake</strong>, wait for the oven, pick the matching topping, then <strong>Serve</strong> before their patience bar runs out.</p>' +
+      '<p>Pearl and Phoebe are opening the counter. Customers queue up with an order ticket &mdash; a flavour and a topping. Tap <strong>Bake</strong>, wait for the oven, pick the matching topping, then <strong>Serve</strong> before their patience bar runs out.</p>' +
       '<p>Each day starts with just <strong>one</strong> customer. Clear them and the next wave brings <strong>two</strong> at once, then <strong>three</strong>&nbsp;&mdash; all the way up to <strong>six</strong> at a time!</p>' +
       '<p>Earn coins to buy upgrades between days. Lose 3 hearts of reputation and the bakery closes for the day.</p>' +
       (hs.day > 1 || hs.coins > 0 ? '<p>Best run: Day '+hs.day+' &middot; 🪙 '+hs.coins+'</p>' : '') +
@@ -901,3 +964,5 @@
   }
 })();
 </script>
+</body>
+</html>
