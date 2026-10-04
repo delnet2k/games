@@ -297,7 +297,40 @@
   }
   .buy-btn:disabled{opacity:.4;cursor:not-allowed;}
 
-  .modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:16px;}
+  .modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:16px;flex-wrap:wrap;}
+  .primary-btn.plain{background:var(--surface-2);color:var(--text);box-shadow:0 4px 0 var(--border);}
+
+  /* ---- leaderboard ---- */
+  .board-btn{
+    border:none;border-radius:999px;background:var(--surface-2);color:var(--text);
+    font-size:16px;line-height:1;padding:6px 10px;min-height:32px;cursor:pointer;
+  }
+  .board-btn:focus-visible{outline:2px solid var(--accent-phoebe);outline-offset:2px;}
+  .modal h3{font-family:'Fredoka',system-ui,sans-serif;font-size:18px;margin:18px 0 8px;}
+  .score-form label{display:block;font-weight:800;font-size:13px;margin-bottom:6px;}
+  .name-row{display:flex;gap:8px;flex-wrap:wrap;}
+  .name-row input{
+    flex:1 1 140px;min-width:0;
+    font:inherit;font-size:16px;font-weight:700;
+    color:var(--text);background:var(--surface);
+    border:1.5px solid var(--border);border-radius:12px;padding:10px 12px;
+  }
+  .name-row input:focus{outline:2px solid var(--accent-phoebe);outline-offset:1px;border-color:var(--accent-phoebe);}
+  .name-row .primary-btn{flex:none;}
+  .form-msg{margin:8px 0 0;font-size:13px;font-weight:700;min-height:1.2em;color:var(--text-muted);}
+  .form-msg.bad{color:var(--danger);}
+  .board{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;}
+  .board li{
+    display:grid;grid-template-columns:2em minmax(0,1fr) auto auto;gap:10px;align-items:center;
+    padding:7px 10px;border-radius:10px;background:var(--surface-3);
+    font-weight:700;font-size:14px;font-variant-numeric:tabular-nums;
+  }
+  .board li .rank{color:var(--text-muted);font-weight:800;}
+  .board li:nth-child(-n+3) .rank{color:var(--gold);}
+  .board li .who{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .board li .d{color:var(--text-muted);font-size:12px;}
+  .board li.me{background:var(--surface-2);box-shadow:inset 0 0 0 2px var(--accent-phoebe);}
+  .board-empty{color:var(--text-muted);font-size:14px;margin:0;}
 
   footer.credit{text-align:center;font-size:12px;color:var(--text-muted);margin-top:4px;}
 
@@ -386,6 +419,7 @@
       <div class="stat"><span class="dim">Wave</span> <span id="waveNum">1</span>/<span id="waveMax">6</span></div>
       <div class="stat">🪙 <span id="coinCount">0</span></div>
       <div class="hearts" id="heartsRow" aria-label="Reputation"></div>
+      <button class="board-btn" id="boardBtn" type="button" aria-label="Leaderboard" title="Leaderboard">🏆</button>
     </div>
   </header>
 
@@ -420,6 +454,12 @@
   var MAX_SLOTS = 6;
   var MAX_HEARTS = 3;
   var HIGH_SCORE_KEY = 'cakeChaosHighScore';
+  var NAME_KEY = 'cakeChaosName';
+
+  // Shared leaderboard (Supabase). The publishable key is meant to be public:
+  // the table only allows reading and adding scores.
+  var BOARD_URL = 'https://ppqlwnqpimictchkpqyu.supabase.co/rest/v1/scores';
+  var BOARD_KEY = 'sb_publishable_UoMfluUBvmWgHxPD3gvBaA_zxN6LudO';
 
   var state = null;
   var tickHandle = null;
@@ -907,23 +947,144 @@
     try { localStorage.setItem(HIGH_SCORE_KEY, JSON.stringify(hs)); } catch(e){}
   }
 
+  // ---------- leaderboard ----------
+
+  function esc(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+  function loadName(){
+    try { return localStorage.getItem(NAME_KEY) || ''; } catch(e){ return ''; }
+  }
+  function saveName(n){
+    try { localStorage.setItem(NAME_KEY, n); } catch(e){}
+  }
+
+  function fetchBoard(){
+    var q = '?select=id,name,day,coins&game=eq.cake-chaos&order=day.desc,coins.desc,created_at.asc&limit=10';
+    return fetch(BOARD_URL + q, {headers:{apikey:BOARD_KEY}, cache:'no-store'})
+      .then(function(r){ if (!r.ok) throw new Error('HTTP '+r.status); return r.json(); });
+  }
+  function postScore(name, day, coins){
+    return fetch(BOARD_URL, {
+      method:'POST',
+      headers:{apikey:BOARD_KEY, 'Content-Type':'application/json', Prefer:'return=representation'},
+      body: JSON.stringify({name:name, day:day, coins:coins})
+    }).then(function(r){ if (!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+      .then(function(rows){ return rows && rows[0]; });
+  }
+
+  // Fills #boardList with the top 10, highlighting the row with id `mine`.
+  // Resolves with the 1-based rank of `mine`, or 0 if it isn't in the top 10.
+  function renderBoard(mine){
+    var list = document.getElementById('boardList');
+    if (!list) return Promise.resolve(0);
+    list.innerHTML = '<p class="board-empty">Loading the leaderboard&hellip;</p>';
+    return fetchBoard().then(function(rows){
+      if (!document.body.contains(list)) return 0;
+      if (!rows.length){
+        list.innerHTML = '<p class="board-empty">No scores yet. Finish a game to be first on the board!</p>';
+        return 0;
+      }
+      var rank = 0;
+      list.innerHTML = '<ol class="board">' + rows.map(function(r, i){
+        var me = mine && r.id === mine;
+        if (me) rank = i + 1;
+        return '<li'+(me?' class="me"':'')+'>' +
+          '<span class="rank">'+(i+1)+'</span>' +
+          '<span class="who">'+esc(r.name)+'</span>' +
+          '<span class="d">Day '+r.day+'</span>' +
+          '<span>🪙 '+r.coins+'</span>' +
+          '</li>';
+      }).join('') + '</ol>';
+      return rank;
+    }).catch(function(){
+      if (document.body.contains(list)){
+        list.innerHTML = '<p class="board-empty">Couldn&rsquo;t load the leaderboard. Check your internet connection and try again later.</p>';
+      }
+      return 0;
+    });
+  }
+
+  function showBoard(){
+    var prev = state.phase;
+    if (prev === 'daySummary' || prev === 'gameover' || prev === 'board') return;
+    state.phase = 'board';
+    openModal(
+      '<h2>Leaderboard</h2>' +
+      '<p>The top 10 bakers: furthest day first, then most coins.</p>' +
+      '<div id="boardList"></div>' +
+      '<div class="modal-actions">' +
+        '<button class="primary-btn gold" id="boardBackBtn">'+(prev === 'playing' ? 'Back to the bakery' : 'Close')+'</button>' +
+      '</div>');
+    renderBoard(0);
+    document.getElementById('boardBackBtn').addEventListener('click', function(){
+      if (prev === 'playing'){ state.phase = 'playing'; closeModal(); }
+      else { state.phase = prev; showIntro(); }
+    });
+  }
+  document.getElementById('boardBtn').addEventListener('click', showBoard);
+
   function showGameOver(){
     if (tickHandle){ clearInterval(tickHandle); tickHandle = null; }
     var hs = loadHighScore();
     var isNew = state.day > hs.day || (state.day === hs.day && state.coins > hs.coins);
     if (isNew){ hs = {day: state.day, coins: state.coins}; saveHighScore(hs); }
+    var final = {day: state.day, coins: state.coins};
 
     var html = '<h2>The bakery closes&hellip;</h2>' +
       '<p>Reputation ran out &mdash; too many grumpy customers today. Pearl and Phoebe will reopen tomorrow.</p>' +
       '<div class="row-stats">' +
-        '<div class="pill">Reached Day '+state.day+'</div>' +
-        '<div class="pill">🪙 '+state.coins+'</div>' +
+        '<div class="pill">Reached Day '+final.day+'</div>' +
+        '<div class="pill">🪙 '+final.coins+'</div>' +
       '</div>' +
-      (isNew ? '<p><strong>New best!</strong></p>' : '<p>Best so far: Day '+hs.day+' &middot; 🪙 '+hs.coins+'</p>') +
+      (isNew ? '<p><strong>New best on this device!</strong></p>' : '<p>Best on this device: Day '+hs.day+' &middot; 🪙 '+hs.coins+'</p>') +
+      '<form class="score-form" id="scoreForm" novalidate>' +
+        '<label for="playerName">Add your score to the leaderboard</label>' +
+        '<div class="name-row">' +
+          '<input id="playerName" name="playerName" maxlength="16" autocomplete="nickname" placeholder="Your name" value="'+esc(loadName())+'">' +
+          '<button class="primary-btn" type="submit" id="scoreSubmit">Add score</button>' +
+        '</div>' +
+        '<p class="form-msg" id="scoreMsg" role="status"></p>' +
+      '</form>' +
+      '<h3>Top 10</h3>' +
+      '<div id="boardList"></div>' +
       '<div class="modal-actions">' +
         '<button class="primary-btn gold" id="restartBtn">Play Again</button>' +
       '</div>';
     openModal(html);
+    renderBoard(0);
+
+    var form = document.getElementById('scoreForm');
+    var input = document.getElementById('playerName');
+    var submit = document.getElementById('scoreSubmit');
+    var msg = document.getElementById('scoreMsg');
+    form.addEventListener('submit', function(e){
+      e.preventDefault();
+      var name = input.value.replace(/\s+/g,' ').trim().slice(0,16);
+      if (!name){
+        msg.className = 'form-msg bad';
+        msg.textContent = 'Type your name first.';
+        input.focus();
+        return;
+      }
+      submit.disabled = true; input.disabled = true;
+      msg.className = 'form-msg';
+      msg.textContent = 'Adding your score…';
+      saveName(name);
+      postScore(name, final.day, final.coins).then(function(row){
+        return renderBoard(row && row.id).then(function(rank){
+          msg.textContent = rank ? ('You’re number '+rank+' on the board!') : 'Score added. Not in the top 10 this time.';
+          submit.textContent = 'Added';
+        });
+      }).catch(function(){
+        submit.disabled = false; input.disabled = false;
+        msg.className = 'form-msg bad';
+        msg.textContent = 'Couldn’t add your score. Check your internet connection and try again.';
+      });
+    });
+
     document.getElementById('restartBtn').addEventListener('click', function(){
       state = newState();
       renderTop();
@@ -940,10 +1101,12 @@
       '<p>Earn coins to buy upgrades between days. Lose 3 hearts of reputation and the bakery closes for the day.</p>' +
       (hs.day > 1 || hs.coins > 0 ? '<p>Best run: Day '+hs.day+' &middot; 🪙 '+hs.coins+'</p>' : '') +
       '<div class="modal-actions">' +
+        '<button class="primary-btn plain" id="introBoardBtn">🏆 Leaderboard</button>' +
         '<button class="primary-btn gold" id="startBtn">Open the Bakery</button>' +
       '</div>';
     openModal(html);
     document.getElementById('startBtn').addEventListener('click', startDay);
+    document.getElementById('introBoardBtn').addEventListener('click', showBoard);
   }
 
   // ---------- boot ----------
