@@ -265,6 +265,7 @@
   .board li .rank{color:var(--muted);}
   .board li:nth-child(-n+3) .rank{color:var(--gold);}
   .board li .who{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .board li .who small{display:block;color:var(--muted);font-size:12px;font-weight:700;overflow:hidden;text-overflow:ellipsis;}
   .board li .n{font-family:var(--font-display);font-weight:400;font-size:18px;}
   .board li .n small{font-family:var(--font-body);font-size:11px;color:var(--muted);font-weight:800;margin-left:3px;}
   .board li.me{background:rgba(233,185,73,.16);box-shadow:inset 0 0 0 2px var(--gold);}
@@ -356,7 +357,7 @@
 
   <section class="board-sec" id="leaderboard">
     <h2>Leaderboard</h2>
-    <p class="sub">Most right in a row. Top 10.</p>
+    <p class="sub">Every player&rsquo;s right guesses from all their games, added up. Top 10.</p>
     <div id="boardList"><p class="board-empty">Loading the leaderboard&hellip;</p></div>
   </section>
 </div>
@@ -492,10 +493,22 @@
       return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
     });
   }
+  function nameKey(n){ return String(n).replace(/\s+/g,' ').trim().toLowerCase(); }
+
+  // Every game's score, newest first, added up into one row per player.
   function fetchBoard(){
-    return fetch(BOARD_URL + '?select=id,name,streak&order=streak.desc,created_at.asc&limit=10',
+    return fetch(BOARD_URL + '?select=name,streak&order=created_at.desc&limit=1000',
       {headers:{apikey:BOARD_KEY}, cache:'no-store'})
-      .then(function(r){ if (!r.ok) throw new Error('HTTP '+r.status); return r.json(); });
+      .then(function(r){ if (!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+      .then(function(rows){
+        var byKey = {}, players = [];
+        rows.forEach(function(r){
+          var k = nameKey(r.name), p = byKey[k];
+          if (!p){ p = byKey[k] = {key:k, name:r.name.trim(), total:0, games:0, best:0}; players.push(p); }
+          p.total += r.streak; p.games++; p.best = Math.max(p.best, r.streak);
+        });
+        return players.sort(function(a,b){ return b.total - a.total || b.best - a.best || a.games - b.games; });
+      });
   }
   function postScore(name, streak){
     return fetch(BOARD_URL, {
@@ -505,26 +518,26 @@
     }).then(function(r){ if (!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
       .then(function(rows){ return rows && rows[0]; });
   }
-  // Resolves with the 1-based rank of row `mine` in the top 10, or 0.
-  function renderBoard(mine){
+  // Shows the top 10 players, highlighting player `mineKey`.
+  // Resolves with that player's overall rank and totals, or null.
+  function renderBoard(mineKey){
     var list = $('boardList');
-    return fetchBoard().then(function(rows){
-      if (!rows.length){
+    return fetchBoard().then(function(players){
+      if (!players.length){
         list.innerHTML = '<p class="board-empty">No scores yet. Finish a game to be first on the board!</p>';
-        return 0;
+        return null;
       }
-      var rank = 0;
-      list.innerHTML = '<ol class="board">' + rows.map(function(r, i){
-        var me = mine && r.id === mine;
-        if (me) rank = i + 1;
-        return '<li'+(me?' class="me"':'')+'><span class="rank">'+(i+1)+'</span>' +
-          '<span class="who">'+esc(r.name)+'</span>' +
-          '<span class="n">'+r.streak+'<small>in a row</small></span></li>';
+      var mine = null;
+      players.forEach(function(p, i){ if (p.key === mineKey) mine = {rank:i+1, player:p}; });
+      list.innerHTML = '<ol class="board">' + players.slice(0,10).map(function(p, i){
+        return '<li'+(p.key === mineKey?' class="me"':'')+'><span class="rank">'+(i+1)+'</span>' +
+          '<span class="who">'+esc(p.name)+'<small>'+p.games+(p.games===1?' game':' games')+' &middot; best run '+p.best+'</small></span>' +
+          '<span class="n">'+p.total+'<small>right</small></span></li>';
       }).join('') + '</ol>';
-      return rank;
+      return mine;
     }).catch(function(){
       list.innerHTML = '<p class="board-empty">Couldn&rsquo;t load the leaderboard. Check your internet connection and try again later.</p>';
-      return 0;
+      return null;
     });
   }
 
@@ -541,8 +554,10 @@
     save(NAME_KEY, name);
     postScore(name, state.streak).then(function(row){
       state.submitted = true;
-      return renderBoard(row && row.id).then(function(rank){
-        msg.textContent = rank ? ('You’re number '+rank+' on the leaderboard!') : 'Score added. Not in the top 10 this time.';
+      return renderBoard(nameKey(name)).then(function(mine){
+        msg.textContent = mine
+          ? ('Added! '+mine.player.name+' is number '+mine.rank+' with '+mine.player.total+' right from '+mine.player.games+(mine.player.games===1?' game.':' games.'))
+          : 'Score added.';
         btn.textContent = 'Added';
       });
     }).catch(function(){
