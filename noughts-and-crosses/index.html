@@ -15,6 +15,8 @@
   .cell:disabled{cursor:default;}
   .cell.x{color:var(--accent);} .cell.o{color:var(--gold);}
   .cell.win{background:var(--surface);box-shadow:inset 0 0 0 4px var(--text);}
+  .nm{flex:1 1 140px;min-width:0;font-size:16px;padding:12px;border-radius:12px;border:2px solid var(--border);background:var(--surface);color:var(--text);}
+  .nm:focus{outline:3px solid var(--accent);outline-offset:1px;}
   .legend{text-align:center;color:var(--text-muted);font-weight:700;margin:0;}
 </style>
 </head>
@@ -23,10 +25,16 @@
   <a class="back" href="/">&larr; All games</a>
   <div>
     <h1>Noughts and Crosses</h1>
-    <p class="sub">You are crosses. Beat the computer to score points.</p>
+    <p class="sub">Play the computer for points, or take turns with someone on the same screen.</p>
   </div>
 
   <div class="panel">
+    <p class="label">Who are you playing?</p>
+    <div class="chips" id="modes" role="group" aria-label="Players">
+      <button class="chip" data-mode="cpu" aria-pressed="true" type="button">The computer</button>
+      <button class="chip" data-mode="two" aria-pressed="false" type="button">Two players</button>
+    </div>
+    <div id="cpuOpts">
     <p class="label">How clever is the computer?</p>
     <div class="chips" id="levels" role="group" aria-label="Difficulty">
       <button class="chip" data-level="easy" aria-pressed="false" type="button">Easy</button>
@@ -34,11 +42,24 @@
       <button class="chip" data-level="hard" aria-pressed="false" type="button">Hard</button>
     </div>
     <p class="legend" id="worth"></p>
-    <div class="stats">
+    </div>
+    <div id="twoOpts" class="hidden">
+      <p class="label">Names (optional)</p>
+      <div class="row">
+        <input class="nm" id="nameX" maxlength="12" placeholder="Crosses" aria-label="Name for crosses" autocomplete="off">
+        <input class="nm" id="nameO" maxlength="12" placeholder="Noughts" aria-label="Name for noughts" autocomplete="off">
+      </div>
+    </div>
+    <div class="stats" id="cpuStats">
       <div class="stat"><span class="k">Wins</span><span class="v" id="sWins">0</span></div>
       <div class="stat"><span class="k">Draws</span><span class="v" id="sDraws">0</span></div>
       <div class="stat"><span class="k">Losses</span><span class="v" id="sLosses">0</span></div>
       <div class="stat"><span class="k">Points</span><span class="v" id="sPoints">0</span></div>
+    </div>
+    <div class="stats hidden" id="twoStats">
+      <div class="stat"><span class="k" id="kX">Crosses</span><span class="v" id="sX">0</span></div>
+      <div class="stat"><span class="k">Draws</span><span class="v" id="sD2">0</span></div>
+      <div class="stat"><span class="k" id="kO">Noughts</span><span class="v" id="sO">0</span></div>
     </div>
     <div class="grid" id="grid" role="grid" aria-label="Noughts and crosses board"></div>
     <p class="msg" id="msg" aria-live="polite"></p>
@@ -47,6 +68,7 @@
 
   <div class="panel">
     <h2>Leaderboard</h2>
+    <p class="sub" style="margin:-8px 0 0">Points from games against the computer.</p>
     <div id="board"></div>
   </div>
 </div>
@@ -57,7 +79,7 @@
   var PRIZE = {easy:{win:1, draw:0}, medium:{win:3, draw:1}, hard:{win:10, draw:3}};
   var LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
   var $ = function(id){ return document.getElementById(id); };
-  var level = 'medium', cells = [], over = false, computerStarts = true;   // flips at the first game, so you go first
+  var mode = 'cpu', two = {X:0, O:0, D:0}, turn = 'X', level = 'medium', cells = [], over = false, computerStarts = true;   // flips at the first game, so you go first
   var tally = {wins:0, draws:0, losses:0, points:0};
   var board = ArcadeBoard.create({game:'noughts', unit:'points', mount:$('board'),
     onAdded:function(){ tally = {wins:0, draws:0, losses:0, points:0}; showTally(); }});
@@ -135,6 +157,18 @@
   }
   function setMsg(t, k){ $('msg').textContent = t; $('msg').className = 'msg' + (k ? ' ' + k : ''); }
 
+  function who(m){ return ($(m === 'X' ? 'nameX' : 'nameO').value.trim() || (m === 'X' ? 'Crosses' : 'Noughts')); }
+  function showTwo(){
+    $('kX').textContent = who('X'); $('kO').textContent = who('O');
+    $('sX').textContent = two.X; $('sO').textContent = two.O; $('sD2').textContent = two.D;
+  }
+  function checkTwo(){
+    var w = winner(cells), full = !empties(cells).length;
+    if (!w && !full){ turn = turn === 'X' ? 'O' : 'X'; setMsg(who(turn) + ', your go.'); return; }
+    over = true; paint(w);
+    if (w){ two[w.who]++; setMsg(who(w.who) + ' wins!', 'good'); } else { two.D++; setMsg('A draw.'); }
+    showTwo();
+  }
   function check(){
     var w = winner(cells), full = !empties(cells).length;
     if (!w && !full) { setMsg('Your go.'); return; }
@@ -147,6 +181,7 @@
   }
   function play(i){
     if (over || cells[i]) return;
+    if (mode === 'two'){ cells[i] = turn; paint(); checkTwo(); return; }
     cells[i] = 'X'; paint();
     var w = winner(cells);
     if (w || !empties(cells).length){ check(); return; }
@@ -156,6 +191,10 @@
   function newGame(){
     cells = ['','','','','','','','','']; over = false;
     computerStarts = !computerStarts;      // take it in turns to go first
+    if (mode === 'two'){
+      turn = computerStarts ? 'O' : 'X';      // the first player alternates too
+      paint(); showTwo(); setMsg(who(turn) + ', your go.'); return;
+    }
     paint();
     if (computerStarts){ setMsg('Computer goes first…'); setTimeout(computerMove, 450); } else setMsg('Your go.');
   }
@@ -170,6 +209,17 @@
       showWorth(); newGame();
     });
   });
+  Array.prototype.forEach.call(document.querySelectorAll('#modes .chip'), function(c){
+    c.addEventListener('click', function(){
+      mode = c.dataset.mode;
+      Array.prototype.forEach.call(document.querySelectorAll('#modes .chip'), function(d){ d.setAttribute('aria-pressed', d === c ? 'true' : 'false'); });
+      var cpu = mode === 'cpu';
+      ['cpuOpts','cpuStats'].forEach(function(id){ $(id).classList.toggle('hidden', !cpu); });
+      ['twoOpts','twoStats'].forEach(function(id){ $(id).classList.toggle('hidden', cpu); });
+      computerStarts = true; newGame();
+    });
+  });
+  ['nameX','nameO'].forEach(function(id){ $(id).addEventListener('input', function(){ showTwo(); if (!over && mode === 'two') setMsg(who(turn) + ', your go.'); }); });
   $('again').addEventListener('click', newGame);
   showWorth(); newGame(); showTally();
 })();
