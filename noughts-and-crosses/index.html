@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Noughts and Crosses</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Nunito:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/shared/arcade.css">
+<style>
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:420px;width:100%;margin:0 auto;}
+  .cell{appearance:none;aspect-ratio:1;border:2px solid var(--border);border-radius:18px;background:var(--surface-2);
+    font-family:'Fredoka',system-ui,sans-serif;font-weight:700;font-size:clamp(48px,16vw,84px);line-height:1;cursor:pointer;color:var(--text);}
+  .cell:disabled{cursor:default;}
+  .cell.x{color:var(--accent);} .cell.o{color:var(--gold);}
+  .cell.win{background:var(--surface);box-shadow:inset 0 0 0 4px var(--text);}
+  .legend{text-align:center;color:var(--text-muted);font-weight:700;margin:0;}
+</style>
+</head>
+<body>
+<div class="app">
+  <a class="back" href="/">&larr; All games</a>
+  <div>
+    <h1>Noughts and Crosses</h1>
+    <p class="sub">You are crosses. Beat the computer to score points.</p>
+  </div>
+
+  <div class="panel">
+    <p class="label">How clever is the computer?</p>
+    <div class="chips" id="levels" role="group" aria-label="Difficulty">
+      <button class="chip" data-level="easy" aria-pressed="false" type="button">Easy</button>
+      <button class="chip" data-level="medium" aria-pressed="true" type="button">Medium</button>
+      <button class="chip" data-level="hard" aria-pressed="false" type="button">Hard</button>
+    </div>
+    <p class="legend" id="worth"></p>
+    <div class="stats">
+      <div class="stat"><span class="k">Wins</span><span class="v" id="sWins">0</span></div>
+      <div class="stat"><span class="k">Draws</span><span class="v" id="sDraws">0</span></div>
+      <div class="stat"><span class="k">Losses</span><span class="v" id="sLosses">0</span></div>
+      <div class="stat"><span class="k">Points</span><span class="v" id="sPoints">0</span></div>
+    </div>
+    <div class="grid" id="grid" role="grid" aria-label="Noughts and crosses board"></div>
+    <p class="msg" id="msg" aria-live="polite"></p>
+    <button class="btn" id="again" type="button">New game</button>
+  </div>
+
+  <div class="panel">
+    <h2>Leaderboard</h2>
+    <div id="board"></div>
+  </div>
+</div>
+<script src="/shared/board.js"></script>
+<script>
+(function(){
+  // Points for a win / draw at each level. Harder computer, bigger prize.
+  var PRIZE = {easy:{win:1, draw:0}, medium:{win:3, draw:1}, hard:{win:10, draw:3}};
+  var LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+  var $ = function(id){ return document.getElementById(id); };
+  var level = 'medium', cells = [], over = false, computerStarts = true;   // flips at the first game, so you go first
+  var tally = {wins:0, draws:0, losses:0, points:0};
+  var board = ArcadeBoard.create({game:'noughts', unit:'points', mount:$('board'),
+    onAdded:function(){ tally = {wins:0, draws:0, losses:0, points:0}; showTally(); }});
+
+  function winner(b){
+    for (var i = 0; i < LINES.length; i++){
+      var l = LINES[i];
+      if (b[l[0]] && b[l[0]] === b[l[1]] && b[l[0]] === b[l[2]]) return {who:b[l[0]], line:l};
+    }
+    return null;
+  }
+  function empties(b){ var e = []; b.forEach(function(v, i){ if (!v) e.push(i); }); return e; }
+  function pick(a){ return a[Math.floor(Math.random() * a.length)]; }
+
+  // Perfect play: the computer is O, so it wants the highest score.
+  function minimax(b, turn){
+    var w = winner(b);
+    if (w) return w.who === 'O' ? 1 : -1;
+    var e = empties(b); if (!e.length) return 0;
+    var best = turn === 'O' ? -2 : 2;
+    e.forEach(function(i){
+      b[i] = turn; var s = minimax(b, turn === 'O' ? 'X' : 'O'); b[i] = '';
+      best = turn === 'O' ? Math.max(best, s) : Math.min(best, s);
+    });
+    return best;
+  }
+  function moveHard(b){
+    var best = -2, moves = [];
+    empties(b).forEach(function(i){
+      b[i] = 'O'; var s = minimax(b, 'X'); b[i] = '';
+      if (s > best){ best = s; moves = [i]; } else if (s === best) moves.push(i);
+    });
+    return pick(moves);
+  }
+  function findLine(b, who){   // a square that would complete three for `who`
+    var e = empties(b);
+    for (var k = 0; k < e.length; k++){
+      b[e[k]] = who; var w = winner(b); b[e[k]] = '';
+      if (w) return e[k];
+    }
+    return -1;
+  }
+  function moveMedium(b){
+    var m = findLine(b, 'O'); if (m < 0) m = findLine(b, 'X');
+    if (m >= 0) return m;
+    if (!b[4]) return 4;
+    return pick(empties(b));
+  }
+  function moveEasy(b){
+    // Wins if it happens to see it, otherwise wanders about.
+    var m = Math.random() < 0.4 ? findLine(b, 'O') : -1;
+    return m >= 0 ? m : pick(empties(b));
+  }
+  function computerMove(){
+    var m = level === 'hard' ? moveHard(cells) : level === 'medium' ? moveMedium(cells) : moveEasy(cells);
+    cells[m] = 'O'; paint(); check();
+  }
+
+  function paint(w){
+    var g = $('grid'); g.innerHTML = '';
+    cells.forEach(function(v, i){
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'cell' + (v === 'X' ? ' x' : v === 'O' ? ' o' : '') + (w && w.line.indexOf(i) >= 0 ? ' win' : '');
+      b.textContent = v === 'X' ? '✕' : v === 'O' ? '◯' : '';
+      b.setAttribute('aria-label', 'Square ' + (i+1) + (v ? ', ' + (v === 'X' ? 'cross' : 'nought') : ', empty'));
+      b.disabled = over || !!v;
+      b.addEventListener('click', function(){ play(i); });
+      g.appendChild(b);
+    });
+  }
+  function showTally(){
+    $('sWins').textContent = tally.wins; $('sDraws').textContent = tally.draws;
+    $('sLosses').textContent = tally.losses; $('sPoints').textContent = tally.points;
+    board.setScore(tally.points);
+  }
+  function setMsg(t, k){ $('msg').textContent = t; $('msg').className = 'msg' + (k ? ' ' + k : ''); }
+
+  function check(){
+    var w = winner(cells), full = !empties(cells).length;
+    if (!w && !full) { setMsg('Your go.'); return; }
+    over = true; paint(w);
+    var p = PRIZE[level];
+    if (w && w.who === 'X'){ tally.wins++; tally.points += p.win; setMsg('You win! +' + p.win + (p.win === 1 ? ' point' : ' points'), 'good'); }
+    else if (w){ tally.losses++; setMsg('The computer wins this time.', 'bad'); }
+    else { tally.draws++; tally.points += p.draw; setMsg(p.draw ? 'A draw. +' + p.draw + (p.draw === 1 ? ' point' : ' points') : 'A draw.', ''); }
+    showTally();
+  }
+  function play(i){
+    if (over || cells[i]) return;
+    cells[i] = 'X'; paint();
+    var w = winner(cells);
+    if (w || !empties(cells).length){ check(); return; }
+    setMsg('Thinking…');
+    setTimeout(computerMove, 350);
+  }
+  function newGame(){
+    cells = ['','','','','','','','','']; over = false;
+    computerStarts = !computerStarts;      // take it in turns to go first
+    paint();
+    if (computerStarts){ setMsg('Computer goes first…'); setTimeout(computerMove, 450); } else setMsg('Your go.');
+  }
+  function showWorth(){
+    var p = PRIZE[level];
+    $('worth').textContent = 'Win = ' + p.win + (p.win === 1 ? ' point' : ' points') + (p.draw ? ', draw = ' + p.draw : '') + '.';
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('#levels .chip'), function(c){
+    c.addEventListener('click', function(){
+      level = c.dataset.level;
+      Array.prototype.forEach.call(document.querySelectorAll('#levels .chip'), function(d){ d.setAttribute('aria-pressed', d === c ? 'true' : 'false'); });
+      showWorth(); newGame();
+    });
+  });
+  $('again').addEventListener('click', newGame);
+  showWorth(); newGame(); showTally();
+})();
+</script>
+</body>
+</html>

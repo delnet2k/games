@@ -1,0 +1,53 @@
+/* Shared look for the newer games: warm cream (or dark brown at night), no green.
+   Correct answers are blue, wrong ones coral. */
+:root{
+  --bg:#FFF6EC; --surface:#FFFFFF; --surface-2:#FFEBD6; --text:#4A2E1F; --text-muted:#8A6652; --border:#EBD9C2;
+  --accent:#2F6FD0; --accent-ink:#FFFFFF; --good:#2F6FD0; --bad:#D9503F; --gold:#D98F1F;
+  --shadow:0 10px 24px -14px rgba(74,46,31,.35);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#221510; --surface:#32221A; --surface-2:#3C291E; --text:#F5E6D8; --text-muted:#C9A98C; --border:#4A382C;
+    --accent:#6FA2F0; --accent-ink:#14213A; --good:#7FB0F5; --bad:#FF8A78; --gold:#F0B54A;
+    --shadow:0 10px 26px -12px rgba(0,0,0,.55); color-scheme:dark;
+  }
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:'Nunito',system-ui,sans-serif;
+  padding:16px 16px 48px;-webkit-text-size-adjust:100%;}
+button,input{font-family:inherit;touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
+button{-webkit-user-select:none;user-select:none;}
+.app{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:14px;}
+.back{color:var(--text-muted);font-weight:800;text-decoration:none;font-size:14px;}
+.back:hover,.back:focus-visible{color:var(--text);}
+h1{font-family:'Fredoka',system-ui,sans-serif;font-weight:700;font-size:clamp(28px,7vw,38px);margin:0;line-height:1.05;text-wrap:balance;}
+h2{font-family:'Fredoka',system-ui,sans-serif;font-weight:600;font-size:22px;margin:0;}
+.sub{color:var(--text-muted);font-weight:600;margin:4px 0 0;}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:18px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:14px;}
+.btn{appearance:none;border:0;border-radius:16px;background:var(--accent);color:var(--accent-ink);font-weight:800;font-size:18px;
+  padding:14px 20px;min-height:52px;cursor:pointer;}
+.btn:hover{filter:brightness(1.06);}
+.btn:focus-visible,.chip:focus-visible,.key:focus-visible,.cell:focus-visible{outline:3px solid var(--text);outline-offset:2px;}
+.btn.secondary{background:var(--surface-2);color:var(--text);border:1px solid var(--border);}
+.btn:disabled{opacity:.55;cursor:default;}
+.row{display:flex;gap:10px;flex-wrap:wrap;}
+.row>.btn{flex:1 1 140px;}
+.chips{display:flex;flex-wrap:wrap;gap:8px;}
+.chip{appearance:none;border:2px solid var(--border);background:var(--surface-2);color:var(--text);border-radius:14px;
+  font-weight:800;font-size:17px;min-width:52px;min-height:48px;padding:8px 14px;cursor:pointer;}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);}
+.label{font-weight:800;font-size:13px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted);margin:0;}
+.stats{display:flex;gap:8px;flex-wrap:wrap;}
+.stat{flex:1 1 80px;display:flex;flex-direction:column;align-items:center;border:1px solid var(--border);border-radius:14px;padding:6px 10px;background:var(--surface);}
+.stat .k{font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);}
+.stat .v{font-family:'Fredoka',system-ui,sans-serif;font-size:24px;font-variant-numeric:tabular-nums;}
+.msg{min-height:1.6em;font-weight:800;font-size:18px;text-align:center;margin:0;}
+.msg.good{color:var(--good);} .msg.bad{color:var(--bad);}
+.hidden{display:none !important;}
+.keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.key{appearance:none;border:2px solid var(--border);border-radius:16px;background:var(--surface-2);color:var(--text);
+  font-family:'Fredoka',system-ui,sans-serif;font-weight:600;font-size:28px;min-height:62px;cursor:pointer;}
+.key:active{transform:scale(.97);}
+.key.go{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-size:20px;}
+@media (prefers-reduced-motion: reduce){*{transition-duration:.001ms !important;animation-duration:.001ms !important;}}

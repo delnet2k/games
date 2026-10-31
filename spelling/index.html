@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Spelling Bee</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Nunito:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/shared/arcade.css">
+<style>
+  .sentence{font-size:20px;font-weight:700;line-height:1.5;text-align:center;margin:0;}
+  .blank{display:inline-block;min-width:4ch;border-bottom:3px solid var(--accent);}
+  .say{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;}
+  .say .btn{flex:1 1 150px;}
+  .try{display:flex;gap:10px;}
+  .try input{flex:1;min-width:0;font-size:22px;font-weight:800;letter-spacing:.04em;padding:14px;border-radius:14px;
+    border:2px solid var(--border);background:var(--surface);color:var(--text);text-align:center;}
+  .try input:focus{outline:3px solid var(--accent);outline-offset:1px;}
+  .shape{font-family:'Fredoka',system-ui,sans-serif;font-size:26px;letter-spacing:.25em;text-align:center;margin:0;color:var(--text-muted);}
+  .bar{height:10px;border-radius:6px;background:var(--surface-2);overflow:hidden;}
+  .bar>span{display:block;height:100%;background:var(--accent);width:0;transition:width .25s ease;}
+  .words{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;}
+  .words li{display:flex;justify-content:space-between;gap:10px;background:var(--surface-2);border-radius:12px;padding:8px 12px;font-weight:800;}
+  .words li.ok span:last-child{color:var(--good);} .words li.no span:last-child{color:var(--bad);}
+  .big{font-family:'Fredoka',system-ui,sans-serif;font-weight:700;font-size:56px;text-align:center;margin:0;}
+  .wrong{color:var(--bad);}
+</style>
+</head>
+<body>
+<div class="app">
+  <a class="back" href="/">&larr; All games</a>
+  <div>
+    <h1>Spelling Bee</h1>
+    <p class="sub">Listen to the word, then spell it. Ten words a round.</p>
+  </div>
+
+  <div class="panel" id="intro">
+    <p style="margin:0;font-weight:600">Press <b>Hear the word</b> and type what you hear. Get it right first time for 2 points. If you need a second go you can still win 1 point.</p>
+    <button class="btn" id="start" type="button">Start</button>
+  </div>
+
+  <div class="panel hidden" id="play">
+    <div class="stats">
+      <div class="stat"><span class="k">Word</span><span class="v" id="wNum">1/10</span></div>
+      <div class="stat"><span class="k">Points</span><span class="v" id="wPts">0</span></div>
+    </div>
+    <div class="bar" aria-hidden="true"><span id="bar"></span></div>
+    <p class="sentence" id="sentence"></p>
+    <div class="say">
+      <button class="btn secondary" id="hearWord" type="button">🔊 Hear the word</button>
+      <button class="btn secondary" id="hearSentence" type="button">🔊 Hear it in a sentence</button>
+    </div>
+    <p class="shape hidden" id="shape" aria-live="polite"></p>
+    <form class="try" id="form" autocomplete="off">
+      <input id="guess" aria-label="Type the word" autocapitalize="none" autocorrect="off" spellcheck="false" autocomplete="off">
+      <button class="btn" type="submit" id="check">Check</button>
+    </form>
+    <p class="msg" id="msg" aria-live="polite"></p>
+  </div>
+
+  <div class="panel hidden" id="done">
+    <h2 id="doneHead">Well done!</h2>
+    <p class="big" id="doneScore"></p>
+    <ul class="words" id="words"></ul>
+    <div class="row">
+      <button class="btn" id="again" type="button">Play again</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Leaderboard</h2>
+    <div id="board"></div>
+  </div>
+</div>
+<script src="/shared/board.js"></script>
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+  var ROUND = 10;
+  // Each word has a sentence; ___ marks where it goes. Words are the sort a 7 to 8 year old
+  // (school year 3) is expected to learn, plus some common tricky ones.
+  var WORDS = [
+    ['because','I stayed in bed ___ it was raining.'], ['friend','My best ___ lives next door.'],
+    ['people','Lots of ___ came to the party.'], ['though','I went out ___ it was cold.'],
+    ['through','We walked ___ the park.'], ['thought','I ___ about my birthday.'],
+    ['different','A cat is ___ from a dog.'], ['every','I brush my teeth ___ day.'],
+    ['important','It is ___ to be kind.'], ['library','We borrowed a book from the ___.'],
+    ['often','We ___ go to the beach.'], ['answer','Can you ___ the question?'],
+    ['popular','That game is very ___.'], ['believe','I ___ in you.'],
+    ['continue','Please ___ reading.'], ['early','We got up ___ on Monday.'],
+    ['earth','The ___ goes around the sun.'], ['eight','My brother is ___ years old.'],
+    ['enough','Have you had ___ to eat?'], ['exercise','Running is good ___.'],
+    ['favourite','Pizza is my ___ food.'], ['February','___ is a short month.'],
+    ['forward','Take one step ___.'], ['fruit','An apple is a type of ___.'],
+    ['grammar','We learn ___ in English.'], ['group','Our ___ sat at the front.'],
+    ['guard','A dog can ___ the house.'], ['guide','The ___ showed us the way.'],
+    ['heart','Your ___ beats all the time.'], ['height','We measured his ___.'],
+    ['history','We learned about the Romans in ___.'], ['imagine','Close your eyes and ___ a castle.'],
+    ['increase','Prices can ___ over time.'], ['interest','She has a big ___ in space.'],
+    ['island','A boat took us to the ___.'], ['knowledge','Books give us ___.'],
+    ['learn','We ___ new things at school.'], ['length','What is the ___ of the table?'],
+    ['material','The dress is made of soft ___.'], ['medicine','Take your ___ with water.'],
+    ['mention','Please do not ___ it.'], ['minute','Wait one ___.'],
+    ['natural','Honey is a ___ food.'], ['naughty','The puppy was ___.'],
+    ['notice','Did you ___ the sign?'], ['occasion','Her birthday is a special ___.'],
+    ['perhaps','___ it will snow tomorrow.'], ['position','Find your ___ in the line.'],
+    ['possible','Is it ___ to fly?'], ['potatoes','We had ___ with our dinner.'],
+    ['pressure','Do not put ___ on the cut.'], ['promise','I ___ to tell the truth.'],
+    ['purpose','What is the ___ of this tool?'], ['quarter','A ___ of the cake is left.'],
+    ['question','Put your hand up to ask a ___.'], ['recent','This is a ___ photo.'],
+    ['regular','We have a ___ bedtime.'], ['reign','The queen began her ___.'],
+    ['remember','Please ___ your coat.'], ['sentence','Write a ___ with a capital letter.'],
+    ['separate','Keep the red socks ___.'], ['special','Today is a ___ day.'],
+    ['straight','Draw a ___ line.'], ['strange','What a ___ noise!'],
+    ['strength','He lifted it with great ___.'], ['suppose','I ___ you are right.'],
+    ['surprise','It was a lovely ___.'], ['therefore','It rained, ___ we stayed in.'],
+    ['various','There are ___ colours to choose.'], ['weight','What is the ___ of the parcel?'],
+    ['woman','The ___ waited at the bus stop.'], ['women','The ___ went for a walk.'],
+    ['accident','He had a little ___ with the paint.'], ['actually','I ___ liked the film.'],
+    ['address','Write your ___ on the letter.'], ['appear','Stars ___ at night.'],
+    ['arrive','We ___ at noon.'], ['bicycle','I ride my ___ to school.'],
+    ['breath','Take a deep ___.'], ['breathe','It is hard to ___ underwater.'],
+    ['busy','Mum is ___ in the kitchen.'], ['calendar','Look at the date on the ___.'],
+    ['caught','She ___ the ball.'], ['centre','Stand in the ___ of the circle.'],
+    ['century','A ___ is one hundred years.'], ['certain','I am ___ it is true.'],
+    ['complete','Please ___ your work.'], ['consider','___ the choices carefully.'],
+    ['describe','Can you ___ your pet?'], ['disappear','The rabbit will ___ in the hat.'],
+    ['experiment','We did a science ___.'], ['extreme','It was ___ cold.'],
+    ['famous','She is a ___ singer.'], ['peace','The two sides made ___.'],
+    ['business','He runs a small ___.'], ['neighbour','Our ___ has a friendly dog.']
+  ];
+
+  var set = [], wi = 0, tries = 0, pts = 0, hinted = false, results = [], locked = false;
+  var board = ArcadeBoard.create({game:'spelling', unit:'points', mount:$('board')});
+
+  function shuffle(a){ for (var i = a.length - 1; i > 0; i--){ var j = Math.floor(Math.random() * (i + 1)), t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+  function show(which){ ['intro','play','done'].forEach(function(id){ $(id).classList.toggle('hidden', id !== which); }); }
+  function setMsg(t, k){ $('msg').textContent = t; $('msg').className = 'msg' + (k ? ' ' + k : ''); }
+
+  // ---- speech (the browser's own voice; falls back to just showing the sentence) ----
+  var canSpeak = 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
+  function speak(text){
+    if (!canSpeak) return;
+    try {
+      speechSynthesis.cancel();
+      var u = new SpeechSynthesisUtterance(text); u.lang = 'en-GB'; u.rate = 0.85;
+      var voices = speechSynthesis.getVoices(), v = voices.filter(function(x){ return /^en[-_]GB/i.test(x.lang); })[0];
+      if (v) u.voice = v;
+      speechSynthesis.speak(u);
+    } catch(e){}
+  }
+  if (!canSpeak){ $('hearWord').classList.add('hidden'); $('hearSentence').classList.add('hidden'); }
+
+  function cur(){ return set[wi]; }
+  function showWord(){
+    var w = cur();
+    tries = 0; hinted = false; locked = false;
+    $('wNum').textContent = (wi + 1) + '/' + ROUND; $('wPts').textContent = pts;
+    $('bar').style.width = (wi / ROUND * 100) + '%';
+    $('sentence').innerHTML = w[1].replace('___', '<span class="blank">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>');
+    $('shape').classList.add('hidden'); setMsg('');
+    $('guess').value = ''; $('guess').disabled = false; $('check').disabled = false;
+    $('guess').focus();
+    speak(w[0]);
+  }
+  function start(){
+    set = shuffle(WORDS.slice()).slice(0, ROUND); wi = 0; pts = 0; results = [];
+    show('play'); showWord();
+  }
+  function next(){
+    wi++;
+    if (wi >= ROUND) finish(); else showWord();
+  }
+  function wrongLetters(guess, word){
+    // The guess with each wrong letter picked out in colour
+    var out = '';
+    for (var i = 0; i < guess.length; i++){
+      var ch = guess[i].replace(/[&<>]/g, '');
+      out += (guess[i].toLowerCase() === word[i].toLowerCase()) ? ch : '<span class="wrong">' + ch + '</span>';
+    }
+    return out;
+  }
+  $('form').addEventListener('submit', function(e){
+    e.preventDefault();
+    if (locked) return;
+    var w = cur()[0], g = $('guess').value.trim();
+    if (!g){ $('guess').focus(); return; }
+    tries++;
+    if (g.toLowerCase() === w.toLowerCase()){
+      var p = tries === 1 ? 2 : 1; pts += p;
+      results.push({w:w, p:p}); $('wPts').textContent = pts;
+      setMsg(p === 2 ? 'Correct! +2' : 'Got it! +1', 'good');
+      locked = true; $('guess').disabled = $('check').disabled = true;
+      setTimeout(next, 900);
+    } else if (tries === 1){
+      setMsg('Not quite. Have another go!', 'bad');
+      $('shape').textContent = w[0] + ' ' + new Array(w.length).join('_ ').trim() + '   (' + w.length + ' letters)';
+      $('shape').classList.remove('hidden');
+      $('guess').select(); speak(w);
+    } else {
+      results.push({w:w, p:0}); locked = true; $('guess').disabled = $('check').disabled = true;
+      $('msg').className = 'msg bad';
+      $('msg').innerHTML = 'It is spelt <b>' + w + '</b>';
+      setTimeout(next, 2600);
+    }
+  });
+  $('hearWord').addEventListener('click', function(){ speak(cur()[0]); $('guess').focus(); });
+  $('hearSentence').addEventListener('click', function(){ speak(cur()[1].replace('___', cur()[0])); $('guess').focus(); });
+
+  function finish(){
+    $('bar').style.width = '100%'; show('done');
+    var max = ROUND * 2;
+    $('doneHead').textContent = pts >= 18 ? 'Spelling star!' : pts >= 12 ? 'Well done!' : 'Good practice!';
+    $('doneScore').textContent = pts + ' out of ' + max;
+    $('words').innerHTML = results.map(function(r){
+      return '<li class="' + (r.p ? 'ok' : 'no') + '"><span>' + r.w + '</span><span>' + (r.p ? '+' + r.p : 'missed') + '</span></li>';
+    }).join('');
+    board.setScore(pts);
+  }
+  $('start').addEventListener('click', start);
+  $('again').addEventListener('click', function(){ board.setScore(0); start(); });
+  if (canSpeak) speechSynthesis.getVoices();
+})();
+</script>
+</body>
+</html>

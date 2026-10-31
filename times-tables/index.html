@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Number Whiz</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Nunito:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/shared/arcade.css">
+<style>
+  .sum{font-family:'Fredoka',system-ui,sans-serif;font-weight:700;font-size:clamp(40px,13vw,64px);text-align:center;line-height:1.1;margin:0;font-variant-numeric:tabular-nums;}
+  .answer{min-width:3ch;display:inline-block;border-bottom:4px solid var(--accent);color:var(--accent);}
+  .bar{height:10px;border-radius:6px;background:var(--surface-2);overflow:hidden;}
+  .bar>span{display:block;height:100%;background:var(--accent);width:0;transition:width .25s ease;}
+  .miss{display:flex;flex-direction:column;gap:4px;margin:0;padding:0;list-style:none;}
+  .miss li{background:var(--surface-2);border-radius:12px;padding:8px 12px;font-weight:800;font-variant-numeric:tabular-nums;}
+  .big{font-family:'Fredoka',system-ui,sans-serif;font-weight:700;font-size:56px;text-align:center;margin:0;}
+</style>
+</head>
+<body>
+<div class="app">
+  <a class="back" href="/">&larr; All games</a>
+  <div>
+    <h1>Number Whiz</h1>
+    <p class="sub">Times tables and sums. 20 questions a round.</p>
+  </div>
+
+  <div class="panel" id="setup">
+    <p class="label">What shall we practise?</p>
+    <div class="chips" id="modes" role="group" aria-label="Kind of sum">
+      <button class="chip" data-mode="times" aria-pressed="true" type="button">Times tables ×</button>
+      <button class="chip" data-mode="divide" aria-pressed="false" type="button">Sharing ÷</button>
+      <button class="chip" data-mode="add20" aria-pressed="false" type="button">Adding to 20</button>
+      <button class="chip" data-mode="sub20" aria-pressed="false" type="button">Taking away to 20</button>
+      <button class="chip" data-mode="mix100" aria-pressed="false" type="button">Add and take away to 100</button>
+    </div>
+    <div id="tablesBox">
+      <p class="label">Which tables?</p>
+      <div class="chips" id="tables" role="group" aria-label="Tables"></div>
+    </div>
+    <button class="btn" id="start" type="button">Start</button>
+  </div>
+
+  <div class="panel hidden" id="play">
+    <div class="stats">
+      <div class="stat"><span class="k">Question</span><span class="v" id="qNum">1/20</span></div>
+      <div class="stat"><span class="k">Right</span><span class="v" id="qRight">0</span></div>
+      <div class="stat"><span class="k">In a row</span><span class="v" id="qRow">0</span></div>
+    </div>
+    <div class="bar" aria-hidden="true"><span id="bar"></span></div>
+    <p class="sum"><span id="sumText"></span> <span class="answer" id="ans">&nbsp;</span></p>
+    <p class="msg" id="msg" aria-live="polite"></p>
+    <div class="keypad" id="keypad"></div>
+  </div>
+
+  <div class="panel hidden" id="done">
+    <h2 id="doneHead">Well done!</h2>
+    <p class="big" id="doneScore"></p>
+    <p class="sub" id="doneNote" style="text-align:center"></p>
+    <div id="missBox" class="hidden">
+      <p class="label">Have another look at these</p>
+      <ul class="miss" id="miss"></ul>
+    </div>
+    <div class="row">
+      <button class="btn" id="again" type="button">Play again</button>
+      <button class="btn secondary" id="change" type="button">Change what I practise</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Leaderboard</h2>
+    <div id="board"></div>
+  </div>
+</div>
+<script src="/shared/board.js"></script>
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+  var ROUND = 20;
+  var mode = 'times', tables = [2,5,10];
+  var qs = [], qi = 0, typed = '', right = 0, row = 0, missed = [], locked = false;
+  var board = ArcadeBoard.create({game:'times-tables', unit:'right', mount:$('board')});
+
+  function rnd(a, b){ return a + Math.floor(Math.random() * (b - a + 1)); }
+  function shuffle(a){ for (var i = a.length - 1; i > 0; i--){ var j = rnd(0, i), t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+
+  function makeQ(){
+    var a, b, t;
+    if (mode === 'times'){ a = tables[rnd(0, tables.length - 1)]; b = rnd(1, 12); if (Math.random() < .5){ t = a; a = b; b = t; } return {t:a + ' × ' + b + ' =', a:a * b}; }
+    if (mode === 'divide'){ a = tables[rnd(0, tables.length - 1)]; b = rnd(1, 12); return {t:(a * b) + ' ÷ ' + a + ' =', a:b}; }
+    if (mode === 'add20'){ a = rnd(1, 19); b = rnd(1, 20 - a); return {t:a + ' + ' + b + ' =', a:a + b}; }
+    if (mode === 'sub20'){ a = rnd(2, 20); b = rnd(1, a - 1); return {t:a + ' − ' + b + ' =', a:a - b}; }
+    if (Math.random() < .5){ a = rnd(10, 90); b = rnd(5, 100 - a); return {t:a + ' + ' + b + ' =', a:a + b}; }
+    a = rnd(20, 100); b = rnd(5, a - 5); return {t:a + ' − ' + b + ' =', a:a - b};
+  }
+  function makeRound(){
+    var seen = {}, out = [], guard = 0;
+    while (out.length < ROUND && guard++ < 500){
+      var q = makeQ();
+      if (!seen[q.t] || guard > 200){ seen[q.t] = 1; out.push(q); }   // avoid repeats while there are enough different sums
+    }
+    return out;
+  }
+
+  // ---- screens ----
+  function show(which){ ['setup','play','done'].forEach(function(id){ $(id).classList.toggle('hidden', id !== which); }); }
+  function buildTables(){
+    var box = $('tables'); box.innerHTML = '';
+    for (var n = 2; n <= 12; n++){
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'chip'; b.textContent = n; b.dataset.n = n;
+      b.setAttribute('aria-pressed', tables.indexOf(n) >= 0 ? 'true' : 'false');
+      b.addEventListener('click', function(){
+        var v = +this.dataset.n, i = tables.indexOf(v);
+        if (i >= 0){ if (tables.length > 1) tables.splice(i, 1); } else tables.push(v);
+        buildTables();
+      });
+      box.appendChild(b);
+    }
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('#modes .chip'), function(c){
+    c.addEventListener('click', function(){
+      mode = c.dataset.mode;
+      Array.prototype.forEach.call(document.querySelectorAll('#modes .chip'), function(d){ d.setAttribute('aria-pressed', d === c ? 'true' : 'false'); });
+      $('tablesBox').classList.toggle('hidden', mode !== 'times' && mode !== 'divide');
+    });
+  });
+
+  // ---- keypad ----
+  (function(){
+    var k = $('keypad');
+    ['1','2','3','4','5','6','7','8','9','⌫','0','OK'].forEach(function(v){
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'key' + (v === 'OK' ? ' go' : ''); b.textContent = v;
+      b.setAttribute('aria-label', v === '⌫' ? 'Delete' : v === 'OK' ? 'Check my answer' : v);
+      b.addEventListener('click', function(){ press(v); });
+      k.appendChild(b);
+    });
+  })();
+  document.addEventListener('keydown', function(e){
+    if ($('play').classList.contains('hidden')) return;
+    var k = e.key >= '0' && e.key <= '9' ? e.key : e.key === 'Backspace' ? '⌫' : e.key === 'Enter' ? 'OK' : null;
+    if (k === null) return;
+    e.preventDefault();      // so Enter doesn't also click the button that has focus
+    press(k);
+  });
+  function press(v){
+    if (locked) return;
+    if (v === '⌫') typed = typed.slice(0, -1);
+    else if (v === 'OK'){ if (typed !== '') answer(); return; }
+    else if (typed.length < 4) typed += v;
+    $('ans').innerHTML = typed || '&nbsp;';
+  }
+
+  // ---- a round ----
+  function setMsg(t, k){ $('msg').textContent = t; $('msg').className = 'msg' + (k ? ' ' + k : ''); }
+  function ask(){
+    var q = qs[qi]; typed = ''; locked = false;
+    $('sumText').textContent = q.t; $('ans').innerHTML = '&nbsp;';
+    $('qNum').textContent = (qi + 1) + '/' + ROUND; $('qRight').textContent = right; $('qRow').textContent = row;
+    $('bar').style.width = (qi / ROUND * 100) + '%';
+  }
+  function answer(){
+    var q = qs[qi]; locked = true;
+    if (+typed === q.a){
+      right++; row++; setMsg(row >= 3 ? 'Brilliant! ' + row + ' in a row!' : 'Correct!', 'good');
+    } else {
+      row = 0; missed.push({t:q.t, a:q.a, said:typed}); setMsg('The answer is ' + q.a, 'bad');
+      $('ans').textContent = q.a;
+    }
+    $('qRight').textContent = right; $('qRow').textContent = row;
+    setTimeout(function(){
+      qi++; setMsg('');
+      if (qi >= ROUND) finish(); else ask();
+    }, +typed === q.a ? 600 : 1600);
+  }
+  function start(){
+    qs = makeRound(); qi = 0; right = 0; row = 0; missed = [];
+    show('play'); setMsg(''); ask();
+  }
+  function finish(){
+    $('bar').style.width = '100%';
+    show('done');
+    $('doneHead').textContent = right === ROUND ? 'Perfect score!' : right >= 16 ? 'Fantastic!' : right >= 10 ? 'Well done!' : 'Good practice!';
+    $('doneScore').textContent = right + ' out of ' + ROUND;
+    $('doneNote').textContent = missed.length ? 'Try the ones below again next time.' : 'Not one wrong!';
+    $('missBox').classList.toggle('hidden', !missed.length);
+    $('miss').innerHTML = missed.map(function(m){ return '<li>' + m.t + ' ' + m.a + '</li>'; }).join('');
+    board.setScore(right);
+  }
+  $('start').addEventListener('click', start);
+  $('again').addEventListener('click', function(){ board.setScore(0); start(); });
+  $('change').addEventListener('click', function(){ board.setScore(0); show('setup'); });
+  buildTables();
+})();
+</script>
+</body>
+</html>
