@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Story Time</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Nunito:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/shared/arcade.css">
+<style>
+  .story{font-size:19px;line-height:1.6;font-weight:600;margin:0;}
+  .story-title{font-family:'Fredoka',system-ui,sans-serif;font-size:24px;margin:0;}
+  .qtext{font-size:20px;font-weight:800;line-height:1.35;margin:0;}
+  .opts{display:flex;flex-direction:column;gap:10px;}
+  .opt{appearance:none;text-align:left;border:2px solid var(--border);background:var(--surface-2);color:var(--text);
+    border-radius:16px;font-weight:700;font-size:18px;line-height:1.3;padding:14px 16px;min-height:56px;cursor:pointer;}
+  .opt:focus-visible{outline:3px solid var(--text);outline-offset:2px;}
+  .opt.right{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);}
+  .opt.wrong{border-color:var(--bad);color:var(--bad);text-decoration:line-through;}
+  .opt:disabled{cursor:default;}
+  .bar{height:10px;border-radius:6px;background:var(--surface-2);overflow:hidden;}
+  .bar>span{display:block;height:100%;background:var(--accent);width:0;transition:width .25s ease;}
+  .picks{display:flex;flex-direction:column;gap:8px;}
+  .pick{appearance:none;text-align:left;border:2px solid var(--border);background:var(--surface-2);color:var(--text);border-radius:14px;
+    font-weight:800;font-size:17px;padding:12px 14px;min-height:50px;cursor:pointer;display:flex;justify-content:space-between;gap:10px;}
+  .pick small{color:var(--text-muted);font-weight:700;}
+  .pick:focus-visible{outline:3px solid var(--text);outline-offset:2px;}
+  .big{font-family:'Fredoka',system-ui,sans-serif;font-weight:700;font-size:56px;text-align:center;margin:0;}
+</style>
+</head>
+<body>
+<div class="app">
+  <a class="back" href="/">&larr; All games</a>
+  <div>
+    <h1>Story Time</h1>
+    <p class="sub">Read a short story, then answer questions about it.</p>
+  </div>
+
+  <div class="panel" id="pickPanel">
+    <p class="label">Choose a story</p>
+    <div class="picks" id="picks"></div>
+    <button class="btn secondary" id="surprise" type="button">Surprise me</button>
+  </div>
+
+  <div class="panel hidden" id="playPanel">
+    <div class="stats">
+      <div class="stat"><span class="k">Question</span><span class="v" id="qNum">1/5</span></div>
+      <div class="stat"><span class="k">Points</span><span class="v" id="qPts">0</span></div>
+    </div>
+    <div class="bar" aria-hidden="true"><span id="bar"></span></div>
+    <h2 class="story-title" id="sTitle"></h2>
+    <div id="sText"></div>
+    <button class="btn secondary" id="hear" type="button">🔊 Read it to me</button>
+  </div>
+
+  <div class="panel hidden" id="qPanel">
+    <p class="qtext" id="qText"></p>
+    <div class="opts" id="opts"></div>
+    <p class="msg" id="msg" aria-live="polite"></p>
+    <button class="btn hidden" id="next" type="button">Next</button>
+  </div>
+
+  <div class="panel hidden" id="done">
+    <h2 id="doneHead">Well done!</h2>
+    <p class="big" id="doneScore"></p>
+    <p class="sub" id="doneNote" style="text-align:center"></p>
+    <div class="row">
+      <button class="btn" id="another" type="button">Another story</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Leaderboard</h2>
+    <div id="board"></div>
+  </div>
+</div>
+<script src="/shared/board.js"></script>
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+  // Each question lists the right answer FIRST; the order is shuffled when it is shown.
+  var STORIES = [
+    {t:'The Lost Kitten', p:["On Saturday morning, Mia heard a tiny sound in the garden. “Mew, mew.” She looked under the bushes and behind the old red wheelbarrow. At last she found a small grey kitten hiding in a flowerpot.","It was cold and wet from the rain. Mia wrapped it in her scarf and carried it indoors. Her dad gave it a saucer of warm milk. “We must find out who it belongs to,” he said. Mia made a poster and stuck it on the lamp post by the shop."],
+     q:[['Where did Mia find the kitten?',['In a flowerpot','Behind the shop','Under the wheelbarrow']],
+        ['What did Mia’s dad give the kitten?',['Warm milk','A toy','A bowl of fish']],
+        ['Why was the kitten cold and wet?',['It had been raining','It fell in a pond','Mia gave it a bath']],
+        ['In the story, “at last” means…',['after a long time','straight away','never']],
+        ['Why did Mia make a poster?',['So the kitten’s owner could find it','To sell the kitten','To decorate the shop']]]},
+    {t:'A Day at the Beach', p:["The Patel family drove to the seaside on the hottest day of the summer. Jay and his sister Anya raced across the golden sand to the water. The waves were enormous and splashed their knees.","Then they built a huge sandcastle with a deep trench around it and four towers. Mum shared out cheese sandwiches and Dad bought ice creams from a van. As the sun began to set, a big wave rolled up the beach and washed the castle away. “Never mind,” laughed Jay. “We’ll build a better one tomorrow!”"],
+     q:[['How many towers did the sandcastle have?',['Four','Three','Five']],
+        ['What did Dad buy from the van?',['Ice creams','Sandwiches','Buckets']],
+        ['What happened to the sandcastle?',['A wave washed it away','It melted in the sun','The wind blew it down']],
+        ['In the story, “enormous” means…',['very big','very cold','very fast']],
+        ['How did Jay feel at the end?',['Cheerful','Angry','Frightened']]]},
+    {t:'The Magic Paintbrush', p:["Long ago, a poor boy called Ling loved to paint, but he had no brush. One night an old woman gave him a paintbrush that glowed like gold. “Be careful,” she whispered. “Whatever you paint will come alive.”","Ling painted a hen, and it began to cluck. He painted a bowl of rice, and it steamed in front of him. A greedy king heard about the brush and ordered Ling to paint a mountain of gold. Ling smiled and painted a huge wave instead. It washed the king far out to sea, and Ling was never bothered again."],
+     q:[['Who gave Ling the paintbrush?',['An old woman','A king','His teacher']],
+        ['What happened when Ling painted a hen?',['It began to cluck','It flew away','It laid a golden egg']],
+        ['What did the king want Ling to paint?',['A mountain of gold','A bowl of rice','A hen']],
+        ['In the story, “greedy” means…',['wanting far too much for yourself','very kind','very sleepy']],
+        ['Why did Ling paint a wave instead of gold?',['He did not want to help the greedy king','He forgot what to paint','He ran out of paint']]]},
+    {t:'Sam’s First Day', p:["Sam’s tummy felt wobbly as he walked through the school gates. Everything looked so big. A girl with curly hair came up to him. “Hello, I’m Ruby. Do you want to sit with me?” Sam nodded.","In the classroom, Miss Clarke showed them their pegs, and Sam hung up his blue coat. At playtime, Ruby taught him a clapping game. By home time, Sam’s tummy felt calm again. “Can I come back tomorrow?” he asked his mum."],
+     q:[['What was the girl called?',['Ruby','Poppy','Clarke']],
+        ['What colour was Sam’s coat?',['Blue','Red','Grey']],
+        ['What did Ruby teach Sam?',['A clapping game','How to read','How to draw']],
+        ['Why did Sam’s tummy feel wobbly?',['He felt nervous','He was hungry','He was ill']],
+        ['How did Sam feel at the end of the day?',['Happy and keen to go back','Still very scared','Bored']]]},
+    {t:'The Hungry Hedgehog', p:["Hedgehogs are small animals covered in sharp spines. They sleep during the day and come out at night to find food. A hedgehog eats slugs, worms and beetles, which helps gardeners.","In winter, when food is hard to find, hedgehogs hibernate. This means they go into a deep sleep for many weeks. When danger is near, a hedgehog curls into a tight ball so that its spines point outwards. You can help hedgehogs by leaving a small gap in your fence so they can travel between gardens."],
+     q:[['When do hedgehogs look for food?',['At night','In the morning','At lunchtime']],
+        ['Which of these do hedgehogs eat?',['Slugs','Grass','Nuts']],
+        ['What does “hibernate” mean?',['Sleep deeply through the winter','Run very fast','Build a nest']],
+        ['How does a hedgehog protect itself?',['It curls into a tight ball','It runs away','It hides underground']],
+        ['Why is a gap in the fence helpful?',['Hedgehogs can travel between gardens','It keeps slugs out','It lets cats in']]]},
+    {t:'Planting Sunflowers', p:["Sunflowers are easy to grow. First, fill a pot with soil and push a seed about two fingers deep. Next, water it gently and put the pot on a sunny windowsill. After about a week, a tiny green shoot will appear.","When the plant is as tall as a ruler, move it outside into a bright spot. Sunflowers can grow taller than a door! Remember to give them water every day in hot weather."],
+     q:[['How deep should the seed go?',['About two fingers deep','As deep as a ruler','Just on top of the soil']],
+        ['Where does the pot go first?',['On a sunny windowsill','In the shed','Under the bed']],
+        ['When should you move the plant outside?',['When it is as tall as a ruler','After one day','When it has flowered']],
+        ['In the story, “gently” means…',['softly and carefully','quickly','a lot']],
+        ['Why water sunflowers every day in hot weather?',['The soil dries out quickly','To make them grow into doors','Plants like the noise']]]},
+    {t:'The Brave Little Boat', p:["Pip was the smallest boat in the harbour. The big ships laughed at her. “You are too tiny to sail far!” they hooted. One foggy night, a ship called the Grand Duchess lost her way and drifted near sharp rocks.","Her horn sounded loudly, but nobody could see her. Pip switched on her little lantern and chugged out into the mist. “Follow my light!” she called. Slowly the great ship followed Pip back to safety. After that, nobody laughed at Pip again."],
+     q:[['What was Pip?',['The smallest boat in the harbour','A lighthouse','A big ship']],
+        ['What was the weather like that night?',['Foggy','Snowy','Sunny']],
+        ['What did Pip use to guide the ship?',['A little lantern','A loud horn','A map']],
+        ['In the story, “drifted” means…',['floated along without control','sailed very fast','sank']],
+        ['Why did nobody laugh at Pip again?',['She had been brave and helpful','She sailed away','She grew bigger']]]},
+    {t:'Busy Bees', p:["A honeybee colony can have up to fifty thousand bees living together in one hive. Each hive has just one queen, who lays all the eggs. Worker bees fly out to collect nectar from flowers. They carry it home and turn it into honey.","When a bee finds lots of flowers, she does a special wiggling dance to show the others where to go. Bees also help plants by spreading pollen from flower to flower, so that new seeds can grow."],
+     q:[['How many queens does each hive have?',['One','Two','Fifty']],
+        ['What do worker bees collect from flowers?',['Nectar','Honey','Eggs']],
+        ['How does a bee show the others where the flowers are?',['With a wiggling dance','By buzzing loudly','By leaving a trail of pollen']],
+        ['In the story, a “colony” is…',['a large group living together','a type of flower','a sticky treat']],
+        ['Why are bees good for plants?',['They spread pollen so seeds can grow','They water them','They eat the pests']]]},
+    {t:'The Birthday Surprise', p:["Tom woke up and tiptoed downstairs. The house was very quiet. “Has everyone forgotten it’s my birthday?” he thought sadly. There were no cards on the table and no smell of pancakes. Tom put on his shoes and went to the garden.","Suddenly, “SURPRISE!” Mum, Dad, Gran and all his friends jumped out from behind the shed. A banner said HAPPY 8th BIRTHDAY, TOM! There was a chocolate cake with eight candles. Tom grinned from ear to ear."],
+     q:[['How old was Tom?',['Eight','Seven','Nine']],
+        ['Where were the guests hiding?',['Behind the shed','In the kitchen','Under the table']],
+        ['Why was Tom sad at first?',['He thought everyone had forgotten','He was ill','It was raining']],
+        ['In the story, “tiptoed” means…',['walked quietly on his toes','ran quickly','jumped high']],
+        ['“Grinned from ear to ear” tells us Tom was…',['very happy','very tired','cross']]]},
+    {t:'A Night at the Castle', p:["The old castle stood on a hill, and people said it was haunted. Isla and her brother Finn dared each other to go inside. The heavy door creaked open. In the great hall, cobwebs hung like curtains and their torches made strange shadows on the walls.","Then they heard a low moan. Finn gulped. Isla crept forward and peered behind a dusty curtain. There sat a very small owl with a hurt wing. “It was only you!” laughed Isla. They wrapped the owl in a jumper and took it to the vet."],
+     q:[['Where did the castle stand?',['On a hill','By the sea','In a forest']],
+        ['What hung like curtains in the great hall?',['Cobwebs','Flags','Ropes']],
+        ['What was making the moaning noise?',['An owl with a hurt wing','The wind','A ghost']],
+        ['In the story, “peered” means…',['looked carefully','shouted','hid']],
+        ['Why did Finn gulp?',['He felt scared','He was thirsty','He was hungry']]]}
+  ];
+
+  var story = null, qi = 0, pts = 0, tries = 0, locked = false;
+  var board = ArcadeBoard.create({game:'comprehension', unit:'points', mount:$('board')});
+  var canSpeak = 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
+  if (!canSpeak) $('hear').classList.add('hidden');
+
+  function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function shuffle(a){ for (var i = a.length - 1; i > 0; i--){ var j = Math.floor(Math.random() * (i + 1)), t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+  function show(ids){ ['pickPanel','playPanel','qPanel','done'].forEach(function(id){ $(id).classList.toggle('hidden', ids.indexOf(id) < 0); }); }
+  function setMsg(t, k){ $('msg').textContent = t; $('msg').className = 'msg' + (k ? ' ' + k : ''); }
+
+  function speak(text){
+    if (!canSpeak) return;
+    try {
+      if (speechSynthesis.speaking){ speechSynthesis.cancel(); return; }   // pressing again stops it
+      var u = new SpeechSynthesisUtterance(text); u.lang = 'en-GB'; u.rate = 0.9;
+      var v = speechSynthesis.getVoices().filter(function(x){ return /^en[-_]GB/i.test(x.lang); })[0];
+      if (v) u.voice = v;
+      speechSynthesis.speak(u);
+    } catch(e){}
+  }
+
+  // ---- choose a story ----
+  $('picks').innerHTML = STORIES.map(function(s, i){
+    return '<button class="pick" type="button" data-i="' + i + '"><span>' + esc(s.t) + '</span><small>' + s.q.length + ' questions</small></button>';
+  }).join('');
+  Array.prototype.forEach.call(document.querySelectorAll('.pick'), function(b){
+    b.addEventListener('click', function(){ begin(+b.dataset.i); });
+  });
+  $('surprise').addEventListener('click', function(){ begin(Math.floor(Math.random() * STORIES.length)); });
+
+  function begin(i){
+    story = STORIES[i]; qi = 0; pts = 0;
+    $('sTitle').textContent = story.t;
+    $('sText').innerHTML = story.p.map(function(p){ return '<p class="story">' + esc(p) + '</p>'; }).join('<div style="height:10px"></div>');
+    show(['playPanel','qPanel']);
+    window.scrollTo(0, 0);
+    ask();
+  }
+  function ask(){
+    var q = story.q[qi]; tries = 0; locked = false;
+    $('qNum').textContent = (qi + 1) + '/' + story.q.length; $('qPts').textContent = pts;
+    $('bar').style.width = (qi / story.q.length * 100) + '%';
+    $('qText').textContent = q[0]; setMsg('');
+    $('next').classList.add('hidden');
+    $('opts').innerHTML = '';
+    shuffle(q[1].slice()).forEach(function(o){
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'opt'; b.textContent = o;
+      b.addEventListener('click', function(){ choose(b, o); });
+      $('opts').appendChild(b);
+    });
+  }
+  function reveal(){
+    var right = story.q[qi][1][0];
+    Array.prototype.forEach.call($('opts').children, function(b){ b.disabled = true; if (b.textContent === right) b.classList.add('right'); });
+    $('next').textContent = qi + 1 >= story.q.length ? 'See my score' : 'Next question';
+    $('next').classList.remove('hidden'); $('next').focus();
+  }
+  function choose(btn, text){
+    if (locked) return;
+    tries++;
+    if (text === story.q[qi][1][0]){
+      var p = tries === 1 ? 2 : 1; pts += p; $('qPts').textContent = pts;
+      locked = true; reveal(); setMsg(p === 2 ? 'Correct! +2' : 'Got it! +1', 'good');
+    } else if (tries === 1){
+      btn.classList.add('wrong'); btn.disabled = true; setMsg('Not quite. Read the story again and have another go!', 'bad');
+    } else {
+      btn.classList.add('wrong'); locked = true; reveal(); setMsg('The right answer is shown in blue.', 'bad');
+    }
+  }
+  $('next').addEventListener('click', function(){
+    qi++;
+    if (qi >= story.q.length) finish(); else ask();
+  });
+  function finish(){
+    var max = story.q.length * 2;
+    show(['done']); $('bar').style.width = '100%';
+    $('doneHead').textContent = pts >= max - 1 ? 'Super reader!' : pts >= max * 0.6 ? 'Well done!' : 'Good reading!';
+    $('doneScore').textContent = pts + ' out of ' + max;
+    $('doneNote').textContent = story.t;
+    board.setScore(pts);
+  }
+  $('another').addEventListener('click', function(){ board.setScore(0); if (canSpeak) speechSynthesis.cancel(); show(['pickPanel']); window.scrollTo(0, 0); });
+  $('hear').addEventListener('click', function(){ speak(story.t + '. ' + story.p.join(' ')); });
+  if (canSpeak) speechSynthesis.getVoices();
+  show(['pickPanel']);
+})();
+</script>
+</body>
+</html>

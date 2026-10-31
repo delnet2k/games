@@ -1,8 +1,8 @@
--- One table for the newer games (noughts-and-crosses, times-tables, spelling).
+-- One table for the newer games (noughts, times-tables, spelling, comprehension).
 -- Run once in the Supabase dashboard: SQL Editor -> paste -> Run.
 create table if not exists public.arcade_scores (
   id         bigint generated always as identity primary key,
-  game       text        not null check (game in ('noughts','times-tables','spelling')),
+  game       text        not null check (game in ('noughts','times-tables','spelling','comprehension')),
   name       text        not null check (char_length(btrim(name)) between 1 and 16),
   points     integer     not null check (points between 1 and 5000),
   created_at timestamptz not null default now()
@@ -15,3 +15,8 @@ drop policy if exists "anyone can add a score" on public.arcade_scores;
 create policy "anyone can read scores" on public.arcade_scores for select to anon using (true);
 create policy "anyone can add a score" on public.arcade_scores for insert to anon with check (true);
 grant select, insert on public.arcade_scores to anon;
+
+-- If you already ran an earlier version of this file (without 'comprehension'), run this too:
+-- alter table public.arcade_scores drop constraint if exists arcade_scores_game_check;
+-- alter table public.arcade_scores add constraint arcade_scores_game_check
+--   check (game in ('noughts','times-tables','spelling','comprehension'));
